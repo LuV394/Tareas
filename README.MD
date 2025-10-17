@@ -69,6 +69,6 @@ MIT License. Usa libremente, pero cita la fuente si es posible.
 
 ## Autor
 
-Desarrollado por [Tu Nombre o Alias]. Contacto: [tu-email@example.com].
+Desarrollado por LuV394.
 
 Última actualización: 16 de octubre de 2025.
