@@ -8,8 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.2/dexie.min.js"></script>
     <style>
         /* ===== VARIABLES CSS Y RESET ===== */
-        /* Define variables globales para colores, sombras y transiciones consistentes en toda la app.
-           El reset elimina márgenes y paddings por defecto para un control preciso del layout. */
         :root {
             --primary: #4a90e2;
             --primary-dark: #357abd;
@@ -39,7 +37,6 @@
             padding: 20px;
         }
         /* ===== ESTRUCTURA PRINCIPAL ===== */
-        /* Contenedor principal que centra y enmarca la aplicación con un diseño limpio y responsivo. */
         .app-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -49,7 +46,6 @@
             overflow: hidden;
         }
         /* ===== HEADER Y NAVEGACIÓN ===== */
-        /* Encabezado con título, fecha actual y navegación entre secciones. Usa flexbox para alineación responsiva. */
         header {
             background: var(--bg-dark);
             color: white;
@@ -81,7 +77,6 @@
             flex-wrap: wrap;
         }
         /* ===== BOTONES Y CONTROLES ===== */
-        /* Estilos base para botones reutilizables, con variantes por tipo y efectos hover para mejor UX. */
         .btn {
             padding: 10px 20px;
             border: none;
@@ -129,7 +124,6 @@
             font-size: 0.85rem;
         }
         /* ===== SECCIONES Y CONTENIDO ===== */
-        /* Secciones ocultas por defecto, mostradas con animación fade-in para transiciones suaves. */
         section {
             display: none;
             padding: 30px;
@@ -143,7 +137,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
         /* ===== NOTIFICACIONES ===== */
-        /* Sistema de notificaciones toast para feedback inmediato al usuario, con tipos por color y auto-desaparición. */
         .notification {
             position: fixed;
             top: 20px;
@@ -188,7 +181,6 @@
             to { transform: translateX(0); opacity: 1; }
         }
         /* ===== PLANTILLAS DE TAREAS ===== */
-        /* Sección para plantillas rápidas de tareas, con grid responsivo para selección rápida. */
         .templates-section {
             background: var(--bg-light);
             padding: 20px;
@@ -202,7 +194,6 @@
             margin-top: 15px;
         }
         /* ===== CONTENEDORES DE TAREAS ===== */
-        /* Contenedores para listas de tareas, con headers flexibles y grids responsivos. */
         .tasks-container {
             margin-bottom: 40px;
         }
@@ -229,7 +220,6 @@
             margin-bottom: 30px;
         }
         /* ===== TARJETAS DE TAREAS ===== */
-        /* Tarjetas individuales para tareas, con estilos para estados (activa/completada) y acciones. */
         .task-card {
             border-radius: 10px;
             padding: 20px;
@@ -286,7 +276,6 @@
             border-top: 1px solid #e0e0e0;
         }
         /* ===== LISTA CRONOLÓGICA ===== */
-        /* Timeline para mostrar tareas en orden cronológico, con línea vertical y nodos circulares. */
         .chronological-list {
             margin-top: 40px;
         }
@@ -327,7 +316,6 @@
             border: 3px solid white;
         }
         /* ===== MÉTRICAS Y ESTADÍSTICAS ===== */
-        /* Grid para tarjetas de métricas, con hover effects para interactividad. */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -363,7 +351,6 @@
             margin-top: 30px;
         }
         /* ===== DIAGRAMAS Y GRÁFICOS ===== */
-        /* Contenedores para gráficos Chart.js, con fondos y sombras para mejor legibilidad. */
         .diagram-controls {
             display: flex;
             gap: 15px;
@@ -381,7 +368,6 @@
             box-shadow: var(--shadow);
         }
         /* ===== MODALES ===== */
-        /* Overlay para modales, con scroll interno si el contenido es largo, y animaciones para UX suave. */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -476,7 +462,6 @@
             border-top: 1px solid #e0e0e0;
         }
         /* ===== ESTADOS VACÍOS ===== */
-        /* Mensajes para cuando no hay datos, con iconos SVG para visualización amigable. */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -493,7 +478,6 @@
             color: var(--text-light);
         }
         /* ===== RESPONSIVE ===== */
-        /* Media queries para adaptabilidad en dispositivos móviles y tablets. */
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -542,7 +526,6 @@
             }
         }
         /* ===== UTILIDADES ===== */
-        /* Clases helper para estilos comunes, como flexbox, márgenes y visibilidad. */
         .hidden {
             display: none !important;
         }
@@ -867,7 +850,7 @@
         const db = new Dexie('TaskTrackerProDB');
         db.version(3).stores({
             tasks: '++id, date, status, category, start, end, priority, name, color, duration, pausedTime, pauseStart',
-            categories: '++id, name, color, isCustom, isActive',
+            categories: '++id, name, color',
             settings: 'key, value'
         });
 
@@ -927,6 +910,7 @@
         let categoryChartInstance = null;
         let efficiencyChartInstance = null;
         let weeklyChartInstance = null;
+        let previousTasks = []; // Para renderizado incremental
 
         /* ===== FUNCIONES DE UTILIDAD ===== */
         /* Conjunto de funciones helper para formateo de fechas, tiempos, IDs y notificaciones.
@@ -990,6 +974,27 @@
             document.body.appendChild(notification);
             notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
             setTimeout(() => notification.remove(), 4000);
+        }
+
+        /** Sanitiza entrada de usuario para evitar XSS.
+         * @param {string} input - Texto a sanitizar.
+         * @returns {string} Texto seguro. */
+        function sanitizeInput(input) {
+            const div = document.createElement('div');
+            div.textContent = input;
+            return div.innerHTML;
+        }
+
+        /** Función debounce para eventos.
+         * @param {Function} fn - Función a debouncar.
+         * @param {number} delay - Retraso en ms.
+         * @returns {Function} Función debouncada. */
+        function debounce(fn, delay) {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn(...args), delay);
+            };
         }
 
         /* ===== GESTIÓN DE BASE DE DATOS ===== */
@@ -1131,7 +1136,6 @@
         async function initApp() {
             console.log('Inicializando TaskTracker Diario Pro...');
             try {
-                // Inicializar categorías por defecto
                 await initializeDefaultCategories();
                
                 // Cargar datos iniciales
@@ -1158,7 +1162,7 @@
         }
 
         /** Configura todos los event listeners para botones, formularios y elementos dinámicos.
-         * - Evita onclick inline para mejor mantenibilidad y separación de preocupaciones. */
+         - Evita onclick inline para mejor mantenibilidad y separación de preocupaciones. */
         function setupEventListeners() {
             // Selectores DOM comunes para evitar repetición
             const newTaskModal = document.getElementById('newTaskModal');
@@ -1188,7 +1192,7 @@
             document.getElementById('cancel-category-btn').addEventListener('click', closeCategoriesModal);
            
             // Diagramas
-            document.getElementById('diagramDate').addEventListener('change', loadDiagram);
+            document.getElementById('diagramDate').addEventListener('change', debounce(loadDiagram, 300));
             document.getElementById('refresh-charts').addEventListener('click', loadDiagram);
             document.getElementById('export-report').addEventListener('click', exportReport);
            
@@ -1230,7 +1234,7 @@
         }
 
         /** Actualiza el display de fecha en el header.
-         * - Usa locale español para formato legible. */
+         - Usa locale español para formato legible. */
         function updateDateDisplay() {
             const options = {
                 weekday: 'long',
@@ -1272,7 +1276,7 @@
         /* Funciones para renderizar y usar plantillas rápidas de tareas. */
 
         /** Renderiza botones de plantillas en el grid.
-         * - Cada botón tiene data-attribute para identificación. */
+         - Cada botón tiene data-attribute para identificación. */
         function renderTemplates() {
             const templatesGrid = document.getElementById('templatesGrid');
             templatesGrid.innerHTML = TASK_TEMPLATES.map(template => `
@@ -1302,7 +1306,7 @@
         /* Funciones para renderizar y gestionar categorías en selectores y modal. */
 
         /** Renderiza opciones de categorías en selectores del modal.
-         * - Solo categorías activas. */
+         - Solo categorías activas. */
         function renderCategories() {
             const categorySelects = [document.getElementById('taskCategory'), document.getElementById('editTaskCategory')];
             categorySelects.forEach(select => {
@@ -1316,7 +1320,7 @@
         }
 
         /** Renderiza lista de categorías en el modal de gestión, con botones de eliminar.
-         * - Solo muestra categorías personalizadas para edición. */
+         - Solo muestra categorías personalizadas para edición. */
         function renderCategoriesList() {
             const list = document.getElementById('categoriesList');
             if (!list) return;
@@ -1345,7 +1349,7 @@
         /* Funciones para abrir/cerrar modales, con reset de formularios y focus. */
 
         /** Abre el modal de nueva tarea y configura focus.
-         * - Limpia formulario si es necesario. */
+         - Limpia formulario si es necesario. */
         function openNewTaskModal() {
             document.getElementById('newTaskForm').reset();
             selectedColor = '#4a90e2';
@@ -1355,7 +1359,7 @@
         }
 
         /** Cierra el modal de nueva tarea y resetea estado.
-         * - Limpia formulario y selección de color. */
+         - Limpia formulario y selección de color. */
         function closeNewTaskModal() {
             document.getElementById('newTaskModal').classList.remove('active');
             document.getElementById('newTaskForm').reset();
@@ -1400,8 +1404,8 @@
         async function startTask(event) {
             event.preventDefault();
             try {
-                const name = document.getElementById('taskName').value.trim();
-                const description = document.getElementById('taskDescription').value.trim();
+                const name = sanitizeInput(document.getElementById('taskName').value.trim());
+                const description = sanitizeInput(document.getElementById('taskDescription').value.trim());
                 const category = document.getElementById('taskCategory').value;
                 const priority = document.getElementById('taskPriority').value;
                
@@ -1457,8 +1461,8 @@
             event.preventDefault();
             try {
                 const id = document.getElementById('editTaskId').value;
-                const name = document.getElementById('editTaskName').value.trim();
-                const description = document.getElementById('editTaskDescription').value.trim();
+                const name = sanitizeInput(document.getElementById('editTaskName').value.trim());
+                const description = sanitizeInput(document.getElementById('editTaskDescription').value.trim());
                 const category = document.getElementById('editTaskCategory').value;
                 const priority = document.getElementById('editTaskPriority').value;
                
@@ -1490,14 +1494,15 @@
         /** Inicia un timer global para actualizar timers de tareas activas cada segundo.
          * - Usa un solo interval para eficiencia en lugar de uno por tarea. */
         function startGlobalTimer() {
-            if (globalTimer) clearInterval(globalTimer);
-            globalTimer = setInterval(() => {
+            function updateTimers() {
                 tasks.forEach(task => {
                     if (task.status === 'active') {
                         updateTaskTimer(task.id);
                     }
                 });
-            }, 1000);
+                requestAnimationFrame(updateTimers);
+            }
+            requestAnimationFrame(updateTimers);
         }
 
         /** Actualiza el display del timer para una tarea específica.
@@ -1595,11 +1600,15 @@
                 const activeContainer = document.getElementById('activeTasks');
                 const completedContainer = document.getElementById('completedTasks');
                 const chronologicalContainer = document.getElementById('chronologicalList');
-                activeContainer.innerHTML = '';
-                completedContainer.innerHTML = '';
-                chronologicalContainer.innerHTML = '';
+                if (!activeContainer || !completedContainer || !chronologicalContainer) return;
                 const activeTasks = tasks.filter(t => t.status !== 'completed');
                 const completedTasks = tasks.filter(t => t.status === 'completed');
+
+                // Renderizado incremental: solo actualizar si hay cambios
+                if (JSON.stringify(tasks) === JSON.stringify(previousTasks)) return;
+                previousTasks = [...tasks];
+
+                activeContainer.innerHTML = '';
                 if (activeTasks.length === 0) {
                     activeContainer.innerHTML = `
                         <div class="empty-state">
@@ -1610,6 +1619,7 @@
                 } else {
                     activeTasks.forEach(task => activeContainer.appendChild(createTaskCard(task)));
                 }
+                completedContainer.innerHTML = '';
                 if (completedTasks.length === 0) {
                     completedContainer.innerHTML = `
                         <div class="empty-state">
@@ -1619,6 +1629,7 @@
                 } else {
                     completedTasks.forEach(task => completedContainer.appendChild(createTaskCard(task)));
                 }
+                chronologicalContainer.innerHTML = '';
                 const sortedTasks = [...tasks].sort((a, b) => a.start - b.start);
                 if (sortedTasks.length === 0) {
                     chronologicalContainer.innerHTML = `
@@ -1733,18 +1744,18 @@
                                 ${task.description}
                             </div>
                         ` : ''}
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 1.3rem; font-weight: 700; color: ${task.color};">
-                            ${formatTime(duration)}
                         </div>
-                        <div style="font-size: 0.85rem; color: var(--text-light);">
-                            ${formatTimestamp(task.start)}
-                            ${task.end ? ` - ${formatTimestamp(task.end)}` : ' (activa)'}
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.3rem; font-weight: 700; color: ${task.color};">
+                                ${formatTime(duration)}
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-light);">
+                                ${formatTimestamp(task.start)}
+                                ${task.end ? ` - ${formatTimestamp(task.end)}` : ' (activa)'}
+                            </div>
+                            ${task.status === 'paused' ?
+                                '<div style="color: var(--warning); font-size: 0.85rem; font-weight: 600;">⏸ Pausada</div>' : ''}
                         </div>
-                        ${task.status === 'paused' ?
-                            '<div style="color: var(--warning); font-size: 0.85rem; font-weight: 600;">⏸️ Pausada</div>' : ''}
-                    </div>
                 </div>
             `;
             return item;
@@ -1800,7 +1811,7 @@
             showNotification('📊 Datos exportados en CSV', 'success');
         }
 
-       /** Exporta tareas del día actual en TXT legible.
+       /** Exportar tareas del día actual en TXT legible.
         * @param {boolean} [download=true] - Si descargar automáticamente.
         * @returns {string} Contenido TXT. */
         function exportTXT(download = true) {
@@ -2178,7 +2189,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } }
+                            y: { beginAtZero: true, max: 100 }
                         }
                     }
                 });
@@ -2246,7 +2257,6 @@
         }
 
         /** Exporta un reporte mejorado con métricas adicionales para la fecha seleccionada. */
-        /** Exporta un reporte mejorado con métricas para la fecha seleccionada. */
         async function exportReport() {
             const selectedDate = document.getElementById('diagramDate').value;
             const dateTasks = await loadDayData(selectedDate);
