@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskTracker Diario Pro - Gestión Avanzada de Tareas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.2/dexie.min.js"></script>
+    <style>
+        /* ===== VARIABLES CSS Y RESET ===== */
+        /* Define variables globales para colores, sombras y transiciones consistentes en toda la app.
+           El reset elimina márgenes y paddings por defecto para un control preciso del layout. */
+        :root {
+            --primary: #4a90e2;
+            --primary-dark: #357abd;
+            --success: #5cb85c;
+            --danger: #d9534f;
+            --warning: #f0ad4e;
+            --info: #5bc0de;
+            --bg-light: #f8f9fa;
+            --bg-dark: #343a40;
+            --text-dark: #212529;
+            --text-light: #6c757d;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+            padding: 20px;
+        }
+        /* ===== ESTRUCTURA PRINCIPAL ===== */
+        /* Contenedor principal que centra y enmarca la aplicación con un diseño limpio y responsivo. */
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+        /* ===== HEADER Y NAVEGACIÓN ===== */
+        /* Encabezado con título, fecha actual y navegación entre secciones. Usa flexbox para alineación responsiva. */
+        header {
+            background: var(--bg-dark);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        header h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        .current-date {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        nav {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        /* ===== BOTONES Y CONTROLES ===== */
+        /* Estilos base para botones reutilizables, con variantes por tipo y efectos hover para mejor UX. */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        /* ===== SECCIONES Y CONTENIDO ===== */
+        /* Secciones ocultas por defecto, mostradas con animación fade-in para transiciones suaves. */
+        section {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.4s ease;
+        }
+        section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* ===== NOTIFICACIONES ===== */
+        /* Sistema de notificaciones toast para feedback inmediato al usuario, con tipos por color y auto-desaparición. */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            min-width: 300px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid var(--primary);
+        }
+        .notification-success { border-left-color: var(--success); }
+        .notification-error { border-left-color: var(--danger); }
+        .notification-warning { border-left-color: var(--warning); }
+        .notification-info { border-left-color: var(--info); }
+        .notification-content {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .notification-message {
+            flex: 1;
+            font-weight: 500;
+        }
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-light);
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        /* ===== PLANTILLAS DE TAREAS ===== */
+        /* Sección para plantillas rápidas de tareas, con grid responsivo para selección rápida. */
+        .templates-section {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 30px;
+        }
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        /* ===== CONTENEDORES DE TAREAS ===== */
+        /* Contenedores para listas de tareas, con headers flexibles y grids responsivos. */
+        .tasks-container {
+            margin-bottom: 40px;
+        }
+        .tasks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .tasks-header h2 {
+            color: var(--primary);
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        /* ===== TARJETAS DE TAREAS ===== */
+        /* Tarjetas individuales para tareas, con estilos para estados (activa/completada) y acciones. */
+        .task-card {
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            border-left: 5px solid var(--primary);
+        }
+        .task-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-4px);
+        }
+        .task-card.completed {
+            opacity: 0.8;
+            background: #f8f9fa;
+        }
+        .task-header {
+            margin-bottom: 15px;
+        }
+        .task-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+        .task-category {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            font-weight: 500;
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 20px;
+        }
+        .task-timer {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            color: var(--primary);
+        }
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .task-info {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        /* ===== LISTA CRONOLÓGICA ===== */
+        /* Timeline para mostrar tareas en orden cronológico, con línea vertical y nodos circulares. */
+        .chronological-list {
+            margin-top: 40px;
+        }
+        .chronological-list h3 {
+            color: var(--primary);
+            margin-bottom: 20px;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--primary);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: var(--bg-light);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -36px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 3px solid white;
+        }
+        /* ===== MÉTRICAS Y ESTADÍSTICAS ===== */
+        /* Grid para tarjetas de métricas, con hover effects para interactividad. */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .metric-card {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        .advanced-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        /* ===== DIAGRAMAS Y GRÁFICOS ===== */
+        /* Contenedores para gráficos Chart.js, con fondos y sombras para mejor legibilidad. */
+        .diagram-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        /* ===== MODALES ===== */
+        /* Overlay para modales, con scroll interno si el contenido es largo, y animaciones para UX suave. */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal h2 {
+            margin-bottom: 20px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--bg-light);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+        .color-palette {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: var(--transition);
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        .color-option.selected {
+            border-color: var(--text-dark);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.1);
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        /* ===== ESTADOS VACÍOS ===== */
+        /* Mensajes para cuando no hay datos, con iconos SVG para visualización amigable. */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        .empty-state svg {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: var(--text-light);
+        }
+        /* ===== RESPONSIVE ===== */
+        /* Media queries para adaptabilidad en dispositivos móviles y tablets. */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            header {
+                padding: 15px 20px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-content {
+                justify-content: space-between;
+            }
+            header h1 {
+                font-size: 1.4rem;
+            }
+            section {
+                padding: 20px;
+            }
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+            .modal {
+                padding: 20px;
+                margin: 10px;
+            }
+            .chart-container {
+                height: 300px;
+            }
+            .templates-grid {
+                grid-template-columns: 1fr;
+            }
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 480px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-actions {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        /* ===== UTILIDADES ===== */
+        /* Clases helper para estilos comunes, como flexbox, márgenes y visibilidad. */
+        .hidden {
+            display: none !important;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        .mt-20 {
+            margin-top: 20px;
+        }
+        .flex {
+            display: flex;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .gap-10 {
+            gap: 10px;
+        }
+        .gap-15 {
+            gap: 15px;
+        }
+        .w-100 {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="header-content">
+                <h1>📋 TaskTracker Diario Pro</h1>
+                <div class="current-date" id="currentDateDisplay"></div>
+            </div>
+            <nav>
+                <button id="nav-registro" class="btn active">📝 Registro</button>
+                <button id="nav-diagrama" class="btn">📊 Visualización</button>
+                <button id="nav-config" class="btn">⚙️ Configuración</button>
+            </nav>
+        </header>
+        <!-- SECCIÓN: REGISTRO DE TAREAS -->
+        <!-- Sección principal para crear, ver y gestionar tareas diarias, con plantillas y listas separadas por estado. -->
+        <section id="registro" class="active">
+            <!-- Plantillas rápidas -->
+            <div class="templates-section">
+                <h3>🚀 Plantillas Rápidas</h3>
+                <div class="templates-grid" id="templatesGrid">
+                    <!-- Las plantillas se generan dinámicamente en JS -->
+                </div>
+            </div>
+            <!-- Tareas activas -->
+            <div class="tasks-container">
+                <div class="tasks-header">
+                    <h2>🎯 Tareas Activas</h2>
+                    <div class="header-actions">
+                        <button id="new-task-btn" class="btn btn-primary">
+                            ➕ Nueva Tarea
+                        </button>
+                        <button id="manage-categories-btn" class="btn btn-outline">
+                            🏷️ Categorías
+                        </button>
+                    </div>
+                </div>
+                <div id="activeTasks" class="tasks-grid"></div>
+            </div>
+            <!-- Tareas completadas -->
+            <div class="tasks-container">
+                <div class="tasks-header">
+                    <h2>✅ Tareas Completadas</h2>
+                 <div class="header-actions">
+                     <div class="form-group" style="margin: 0; min-width: 150px;">
+                    <label style="font-size: 0.85rem;"><strong>📅 Día:</strong></label>
+                    <input type="date" id="exportDate" value="">
+                </div>
+    <button id="export-day-btn" class="btn btn-success">
+        💾 Exportar Día (TXT)
+    </button>
+    <button id="backup-btn" class="btn btn-info">
+        📦 Backup
+    </button>
+</div>
+                </div>
+                <div id="completedTasks" class="tasks-grid"></div>
+            </div>
+            <!-- Timeline cronológico -->
+            <div class="chronological-list">
+                <div class="tasks-header">
+                    <h3>📅 Lista Cronológica del Día</h3>
+                    <button id="toggle-timeline" class="btn btn-outline btn-small">
+                        ↕️ Alternar
+                    </button>
+                </div>
+                <div id="chronologicalList" class="timeline"></div>
+            </div>
+        </section>
+        <!-- SECCIÓN: DIAGRAMA Y ESTADÍSTICAS -->
+        <!-- Sección para visualizaciones, con controles de fecha y gráficos para análisis de productividad. -->
+        <section id="diagrama">
+            <div class="diagram-controls">
+                <div class="form-group" style="margin: 0;">
+                    <label><strong>📅 Fecha:</strong></label>
+                    <input type="date" id="diagramDate">
+                </div>
+                <button id="refresh-charts" class="btn btn-primary">
+                    🔄 Actualizar
+                </button>
+                <button id="export-report" class="btn btn-success">
+                    📄 Exportar Reporte
+                </button>
+            </div>
+           
+            <div id="diagramContent">
+                <!-- Métricas principales -->
+                <div class="metrics-grid" id="metricsGrid"></div>
+                <!-- Métricas avanzadas -->
+                <div class="advanced-metrics" id="advancedMetrics"></div>
+                <!-- Gráficos -->
+                <div class="chart-container">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+               
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="efficiencyChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+            <div id="emptyDiagram" class="empty-state hidden">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                </svg>
+                <h3>No hay datos para esta fecha</h3>
+                <p>Selecciona otra fecha o registra tareas en la sección principal</p>
+            </div>
+        </section>
+        <!-- SECCIÓN: CONFIGURACIÓN -->
+        <!-- Sección para ajustes de la app, como auto-guardado, notificaciones y backups. -->
+        <section id="configuracion">
+            <div class="tasks-header">
+                <h2>⚙️ Configuración</h2>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Auto-guardado</div>
+                    <div class="metric-value" id="autoSaveStatus">Activado</div>
+                    <button class="btn btn-small btn-outline w-100 mt-20" id="toggleAutoSave">
+                        Desactivar
+                    </button>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Notificaciones</div>
+                    <div class="metric-value" id="notificationStatus">Activadas</div>
+                    <button class="btn btn-small btn-outline w-100 mt-20" id="toggleNotifications">
+                        Desactivar
+                    </button>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Datos Almacenados</div>
+                    <div class="metric-value" id="storageUsage">0 KB</div>
+                    <button class="btn btn-small btn-outline w-100 mt-20" id="clearData">
+                        Limpiar
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label><strong>🕐 Intervalo de Auto-guardado (minutos)</strong></label>
+                <input type="number" id="autoSaveInterval" min="1" max="60" value="1" class="w-100">
+            </div>
+            <div class="form-group">
+                <label><strong>📤 Exportar Todos los Datos</strong></label>
+                <div class="flex gap-10">
+                    <button class="btn btn-success" id="exportAllData">
+                        Exportar Backup Completo
+                    </button>
+                    <button class="btn btn-info" id="importData">
+                        Importar Backup
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label><strong>🔄 Sincronización</strong></label>
+                <div class="flex gap-10">
+                    <button class="btn btn-primary" id="syncNow">
+                        Sincronizar Ahora
+                    </button>
+                    <button class="btn btn-outline" id="configureSync">
+                        Configurar
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+    <!-- MODAL: NUEVA TAREA -->
+    <!-- Modal para crear nuevas tareas, con campos para descripción, prioridad y color. -->
+    <div id="newTaskModal" class="modal-overlay">
+        <div class="modal">
+            <h2>➕ Nueva Tarea</h2>
+            <form id="newTaskForm">
+                <div class="form-group">
+                    <label for="taskName">📝 Nombre de la Tarea *</label>
+                    <input type="text" id="taskName" required placeholder="Ej: Revisión de inventario mensual" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="taskDescription">📄 Descripción (Opcional)</label>
+                    <textarea id="taskDescription" rows="3" placeholder="Detalles adicionales de la tarea..." maxlength="500"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="taskCategory">🏷️ Categoría</label>
+                    <select id="taskCategory">
+                        <!-- Las categorías se cargan dinámicamente -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>🎨 Color de la Tarea</label>
+                    <div class="color-palette" id="colorPalette">
+                        <!-- Los colores se generan dinámicamente -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="taskPriority">🎯 Prioridad</label>
+                    <select id="taskPriority">
+                        <option value="baja">🟢 Baja</option>
+                        <option value="media">🟡 Media</option>
+                        <option value="alta">🔴 Alta</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-new-task-btn" class="btn">❌ Cancelar</button>
+                    <button type="submit" class="btn btn-primary">🚀 Iniciar Tarea</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- MODAL: EDITAR TAREA (Nuevo) -->
+    <!-- Modal para editar tareas existentes, reutilizando estructura del modal de creación. -->
+    <div id="editTaskModal" class="modal-overlay">
+        <div class="modal">
+            <h2>✏️ Editar Tarea</h2>
+            <form id="editTaskForm">
+                <input type="hidden" id="editTaskId">
+                <div class="form-group">
+                    <label for="editTaskName">📝 Nombre de la Tarea *</label>
+                    <input type="text" id="editTaskName" required placeholder="Ej: Revisión de inventario mensual" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="editTaskDescription">📄 Descripción (Opcional)</label>
+                    <textarea id="editTaskDescription" rows="3" placeholder="Detalles adicionales de la tarea..." maxlength="500"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editTaskCategory">🏷️ Categoría</label>
+                    <select id="editTaskCategory">
+                        <!-- Las categorías se cargan dinámicamente -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>🎨 Color de la Tarea</label>
+                    <div class="color-palette" id="editColorPalette">
+                        <!-- Los colores se generan dinámicamente -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editTaskPriority">🎯 Prioridad</label>
+                    <select id="editTaskPriority">
+                        <option value="baja">🟢 Baja</option>
+                        <option value="media">🟡 Media</option>
+                        <option value="alta">🔴 Alta</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-edit-task-btn" class="btn">❌ Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- MODAL: GESTIÓN DE CATEGORÍAS -->
+    <!-- Modal para agregar/eliminar categorías personalizadas, con lista dinámica. -->
+    <div id="categoriesModal" class="modal-overlay">
+        <div class="modal">
+            <h2>🏷️ Gestión de Categorías</h2>
+            <div class="form-group">
+                <label>📋 Categorías Existentes</label>
+                <div id="categoriesList" class="mb-20">
+                    <!-- Lista de categorías dinámica -->
+                </div>
+            </div>
+            <form id="newCategoryForm">
+                <div class="form-group">
+                    <label for="newCategoryName">🆕 Nueva Categoría</label>
+                    <input type="text" id="newCategoryName" placeholder="Nombre de la categoría" maxlength="50">
+                </div>
+                <div class="form-group">
+                    <label>🎨 Color</label>
+                    <input type="color" id="newCategoryColor" value="#4a90e2">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-category-btn" class="btn">❌ Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Agregar Categoría</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- INPUT OCULTO PARA IMPORTAR DATOS -->
+    <!-- Input para seleccionar archivos de backup JSON, oculto y activado por botón. -->
+    <input type="file" id="importFile" accept=".json" style="display: none;">
+    <script>
+        /* ===== CONFIGURACIÓN DE LA BASE DE DATOS ===== */
+        /* Inicializa IndexedDB con Dexie.js para almacenamiento local persistente.
+           - Esquema: 'tasks' para tareas (con índices para queries rápidas por fecha/status),
+             'categories' para categorías personalizadas, 'settings' para configuraciones de app.
+           - Versión 3 para compatibilidad con migraciones futuras. */
+        const db = new Dexie('TaskTrackerProDB');
+        db.version(3).stores({
+            tasks: '++id, date, status, category, start, end, priority, name, color, duration, pausedTime, pauseStart',
+            categories: '++id, name, color, isCustom, isActive',
+            settings: 'key, value'
+        });
+
+        /* ===== CONSTANTES Y CONFIGURACIÓN GLOBAL ===== */
+        /* Define constantes inmutables para categorías por defecto, plantillas de tareas y paleta de colores.
+           - DEFAULT_CATEGORIES: Lista inicial de categorías con iconos y colores.
+           - TASK_TEMPLATES: Plantillas predefinidas para agilizar la creación de tareas comunes.
+           - COLOR_PALETTE: Colores reutilizables para tareas y gráficos. */
+        const DEFAULT_CATEGORIES = [
+            { name: 'Asistente', color: '#4a90e2', icon: '💼' },
+            { name: 'Inventario', color: '#5cb85c', icon: '🏠' },
+            { name: 'Graneles', color: '#f0ad4e', icon: '👥' },
+            { name: 'Envios', color: '#d9534f', icon: '☕' },
+            { name: 'Reunion', color: '#9b59b6', icon: '📚' },
+            { name: 'Otro', color: '#1abc9c', icon: '📌' }
+        ];
+        const TASK_TEMPLATES = [
+            {
+                name: 'Reunión Diaria',
+                category: 'Reunion',
+                color: '#9b59b6',
+                description: 'Reunión de coordinación del equipo',
+                priority: 'media'
+            },
+            {
+                name: 'Revisión de Inventario',
+                category: 'Inventario',
+                color: '#5cb85c',
+                description: 'Control y actualización de stock',
+                priority: 'alta'
+            },
+            {
+                name: 'Preparación de Envíos',
+                category: 'Envios',
+                color: '#d9534f',
+                description: 'Empaquetado y organización de pedidos',
+                priority: 'media'
+            }
+        ];
+        const COLOR_PALETTE = ['#4a90e2', '#5cb85c', '#f0ad4e', '#d9534f', '#9b59b6', '#1abc9c', '#34495e', '#e74c3c', '#3498db', '#2ecc71'];
+
+        /* ===== ESTADO GLOBAL DE LA APLICACIÓN ===== */
+        /* Variables globales para mantener el estado de la app, incluyendo fecha actual, listas de tareas/categorías,
+           timers y configuraciones. Estas se actualizan en tiempo real para consistencia. */
+        let currentDate = getTodayDate();
+        let tasks = [];
+        let categories = [];
+        let globalTimer = null;
+        let selectedColor = '#4a90e2';
+        let appSettings = {
+            autoSave: true,
+            autoSaveInterval: 30000,
+            notifications: true,
+            syncEnabled: false
+        };
+        let timelineChartInstance = null;
+        let categoryChartInstance = null;
+        let efficiencyChartInstance = null;
+        let weeklyChartInstance = null;
+
+        /* ===== FUNCIONES DE UTILIDAD ===== */
+        /* Conjunto de funciones helper para formateo de fechas, tiempos, IDs y notificaciones.
+           - Estas son reutilizadas en toda la app para consistencia y legibilidad. */
+
+        /** Obtiene la fecha actual en formato YYYY-MM-DD para claves de almacenamiento.
+         * @returns {string} Fecha en formato ISO básico. */
+        function getTodayDate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        /** Genera un ID único para tareas usando timestamp y random.
+         * @returns {string} ID alfanumérico único. */
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        /** Formatea segundos en tiempo HH:MM:SS legible.
+         * @param {number} seconds - Duración en segundos.
+         * @returns {string} Tiempo formateado. */
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        /** Formatea un timestamp en hora legible (HH:MM:SS).
+         * @param {number} timestamp - Timestamp en ms.
+         * @returns {string} Hora formateada en español. */
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        /** Calcula la duración de una tarea en segundos, restando tiempo pausado.
+         * @param {number} start - Timestamp de inicio.
+         * @param {number} end - Timestamp de fin (o Date.now() si activa).
+         * @param {number} [pausedTime=0] - Tiempo acumulado en pausa.
+         * @returns {number} Duración neta en segundos. */
+        function calculateDuration(start, end, pausedTime) {
+            return Math.floor((end - start - (pausedTime || 0)) / 1000);
+        }
+
+        /** Muestra una notificación toast temporal con tipo de mensaje.
+         * @param {string} message - Texto del mensaje.
+         * @param {string} [type='info'] - Tipo: 'success', 'error', 'warning', 'info'. */
+        function showNotification(message, type = 'info') {
+            if (!appSettings.notifications) return;
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <span class="notification-message">${message}</span>
+                    <button class="notification-close">&times;</button>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
+            setTimeout(() => notification.remove(), 4000);
+        }
+
+        /* ===== GESTIÓN DE BASE DE DATOS ===== */
+        /* Funciones para operaciones CRUD en IndexedDB: carga, guardado, eliminación.
+           - Usa transacciones asíncronas para eficiencia y manejo de errores. */
+
+        /** Carga tareas para una fecha específica desde IndexedDB.
+         * @param {string} date - Fecha en YYYY-MM-DD.
+         * @returns {Promise<Array>} Array de tareas. */
+        async function loadDayData(date) {
+            try {
+                console.log('Cargando datos para fecha:', date);
+                const loadedTasks = await db.tasks.where('date').equals(date).toArray();
+                console.log('Tareas cargadas:', loadedTasks);
+                return loadedTasks;
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                showNotification('Error al cargar los datos', 'error');
+                return [];
+            }
+        }
+
+        /** Guarda una tarea individual en IndexedDB (usa put para upsert).
+         * @param {Object} task - Objeto de tarea con campos requeridos.
+         * @returns {Promise<void>} Resuelve al guardar exitosamente. */
+        async function saveTask(task) {
+            try {
+                console.log('Guardando tarea:', task);
+                await db.tasks.put(task);
+                console.log('Tarea guardada exitosamente');
+            } catch (error) {
+                console.error('Error guardando tarea:', error);
+                showNotification('Error al guardar la tarea', 'error');
+            }
+        }
+
+        /** Elimina una tarea por ID de IndexedDB.
+         * @param {string} taskId - ID de la tarea a eliminar.
+         * @returns {Promise<void>} Resuelve al eliminar. */
+        async function deleteTaskFromDB(taskId) {
+            try {
+                await db.tasks.delete(taskId);
+            } catch (error) {
+                console.error('Error eliminando tarea de DB:', error);
+            }
+        }
+
+        /** Carga categorías desde IndexedDB, fallback a por defecto si vacío.
+         * @returns {Promise<Array>} Array de categorías. */
+        async function loadCategories() {
+            try {
+                const dbCategories = await db.categories.toArray();
+                console.log('Categorías cargadas:', dbCategories);
+                return dbCategories.length > 0 ? dbCategories : DEFAULT_CATEGORIES;
+            } catch (error) {
+                console.error('Error cargando categorías:', error);
+                return DEFAULT_CATEGORIES;
+            }
+        }
+
+        /** Inicializa categorías por defecto si no existen en DB.
+         * @returns {Promise<void>} Resuelve al inicializar. */
+        async function initializeDefaultCategories() {
+            try {
+                const existingCategories = await db.categories.toArray();
+                if (existingCategories.length === 0) {
+                    console.log('Inicializando categorías por defecto');
+                    await db.categories.bulkAdd(DEFAULT_CATEGORIES.map((cat, index) => ({
+                        ...cat,
+                        id: index + 1,
+                        isCustom: false,
+                        isActive: true
+                    })));
+                }
+            } catch (error) {
+                console.error('Error inicializando categorías:', error);
+            }
+        }
+
+        /** Agrega una nueva categoría personalizada a DB y actualiza UI.
+         * @param {Event} event - Evento de submit del formulario.
+         * @returns {Promise<void>} Resuelve al agregar. */
+        async function addCategory(event) {
+            event.preventDefault();
+            try {
+                const name = document.getElementById('newCategoryName').value.trim();
+                const color = document.getElementById('newCategoryColor').value;
+                if (!name || name.length > 50) {
+                    showNotification('Nombre de categoría inválido', 'warning');
+                    return;
+                }
+                const newCat = {
+                    id: generateId(),
+                    name,
+                    color,
+                    isCustom: true,
+                    isActive: true,
+                    icon: '📌' // Icono por defecto
+                };
+                await db.categories.add(newCat);
+                categories = await loadCategories();
+                renderCategories();
+                document.getElementById('newCategoryForm').reset();
+                document.getElementById('newCategoryColor').value = '#4a90e2';
+                closeCategoriesModal();
+                showNotification(`Categoría "${name}" agregada`, 'success');
+            } catch (error) {
+                console.error('Error agregando categoría:', error);
+                showNotification('Error al agregar categoría', 'error');
+            }
+        }
+
+        /** Elimina una categoría por ID (solo personalizadas).
+         * @param {string} catId - ID de la categoría.
+         * @returns {Promise<void>} Resuelve al eliminar. */
+        async function removeCategory(catId) {
+            try {
+                const cat = await db.categories.get(catId);
+                if (cat && !cat.isCustom) {
+                    showNotification('No se pueden eliminar categorías por defecto', 'warning');
+                    return;
+                }
+                await db.categories.delete(catId);
+                categories = await loadCategories();
+                renderCategories();
+                showNotification('Categoría eliminada', 'success');
+            } catch (error) {
+                console.error('Error eliminando categoría:', error);
+                showNotification('Error al eliminar categoría', 'error');
+            }
+        }
+
+        /* ===== INICIALIZACIÓN DE LA APLICACIÓN ===== */
+        /* Función principal de inicialización: configura DB, carga datos, eventos y UI inicial.
+           - Se ejecuta al cargar el DOM para asegurar que todo esté listo. */
+
+        /** Inicializa la aplicación completa.
+         * @returns {Promise<void>} Resuelve al completar la inicialización. */
+        async function initApp() {
+            console.log('Inicializando TaskTracker Diario Pro...');
+            try {
+                // Inicializar categorías por defecto
+                await initializeDefaultCategories();
+               
+                // Cargar datos iniciales
+                tasks = await loadDayData(currentDate);
+                categories = await loadCategories();
+               
+                // Configurar interfaz
+                document.getElementById('diagramDate').value = currentDate;
+                setupEventListeners();
+                renderTemplates();
+                renderCategories();
+                updateDateDisplay();
+                renderTasks();
+                startGlobalTimer();
+               
+                showNotification('Aplicación cargada correctamente', 'success');
+                console.log(`Cargadas ${tasks.length} tareas para ${currentDate}`);
+            } catch (error) {
+                console.error('Error inicializando app:', error);
+                showNotification('Error al iniciar la aplicación', 'error');
+            }
+
+            document.getElementById('exportDate').value = currentDate;
+        }
+
+        /** Configura todos los event listeners para botones, formularios y elementos dinámicos.
+         * - Evita onclick inline para mejor mantenibilidad y separación de preocupaciones. */
+        function setupEventListeners() {
+            // Selectores DOM comunes para evitar repetición
+            const newTaskModal = document.getElementById('newTaskModal');
+            const editTaskModal = document.getElementById('editTaskModal');
+            const categoriesModal = document.getElementById('categoriesModal');
+
+            // Navegación
+            document.getElementById('nav-registro').addEventListener('click', () => showSection('registro'));
+            document.getElementById('nav-diagrama').addEventListener('click', () => showSection('diagrama'));
+            document.getElementById('nav-config').addEventListener('click', () => showSection('configuracion'));
+           
+            // Botones principales
+            document.getElementById('new-task-btn').addEventListener('click', openNewTaskModal);
+            document.getElementById('manage-categories-btn').addEventListener('click', openCategoriesModal);
+            document.getElementById('export-day-btn').addEventListener('click', exportDay);
+            document.getElementById('backup-btn').addEventListener('click', createBackup);
+            document.getElementById('toggle-timeline').addEventListener('click', toggleTimeline);
+           
+            // Formularios
+            document.getElementById('newTaskForm').addEventListener('submit', startTask);
+            document.getElementById('editTaskForm').addEventListener('submit', saveEditedTask);
+            document.getElementById('newCategoryForm').addEventListener('submit', addCategory);
+           
+            // Modales
+            document.getElementById('cancel-new-task-btn').addEventListener('click', closeNewTaskModal);
+            document.getElementById('cancel-edit-task-btn').addEventListener('click', closeEditTaskModal);
+            document.getElementById('cancel-category-btn').addEventListener('click', closeCategoriesModal);
+           
+            // Diagramas
+            document.getElementById('diagramDate').addEventListener('change', loadDiagram);
+            document.getElementById('refresh-charts').addEventListener('click', loadDiagram);
+            document.getElementById('export-report').addEventListener('click', exportReport);
+           
+            // Configuración
+            document.getElementById('importData').addEventListener('click', () => document.getElementById('importFile').click());
+            document.getElementById('importFile').addEventListener('change', importData);
+            document.getElementById('syncNow').addEventListener('click', () => showNotification('Sincronización no implementada aún', 'info'));
+            document.getElementById('configureSync').addEventListener('click', () => showNotification('Configuración de sincronización no implementada aún', 'info'));
+
+            // Plantillas (delegación de eventos para elementos dinámicos)
+            document.getElementById('templatesGrid').addEventListener('click', (e) => {
+                if (e.target.classList.contains('template-btn')) {
+                    const templateName = e.target.dataset.templateName;
+                    useTemplate(templateName);
+                }
+            });
+
+            // Colores (delegación para paletas dinámicas)
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('color-option')) {
+                    const paletteId = e.target.closest('.color-palette').id;
+                    const isEdit = paletteId === 'editColorPalette';
+                    selectedColor = e.target.dataset.color;
+                    e.target.closest('.color-palette').querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+                    e.target.classList.add('selected');
+                }
+            });
+        }
+
+        /** Configura la paleta de colores en un modal específico.
+         * @param {string} [modalId='newTaskModal'] - ID del modal (new o edit). */
+        function setupColorPalette(modalId = 'newTaskModal') {
+            const palette = document.getElementById(modalId === 'editTaskModal' ? 'editColorPalette' : 'colorPalette');
+            palette.innerHTML = COLOR_PALETTE.map(color => `
+                <div class="color-option ${color === selectedColor ? 'selected' : ''}"
+                     data-color="${color}"
+                     style="background: ${color};"></div>
+            `).join('');
+        }
+
+        /** Actualiza el display de fecha en el header.
+         * - Usa locale español para formato legible. */
+        function updateDateDisplay() {
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+            const dateStr = new Date().toLocaleDateString('es-ES', options);
+            document.getElementById('currentDateDisplay').textContent = dateStr;
+        }
+
+        /* ===== GESTIÓN DE NAVEGACIÓN ===== */
+        /* Funciones para cambiar entre secciones de la app, con carga condicional de datos. */
+
+        /** Cambia a una sección específica y actualiza navegación activa.
+         * @param {string} sectionName - ID de la sección ('registro', 'diagrama', 'configuracion'). */
+        function showSection(sectionName) {
+            try {
+                document.querySelectorAll('section').forEach(section => {
+                    section.classList.remove('active');
+                });
+               
+                document.getElementById(sectionName).classList.add('active');
+               
+                document.querySelectorAll('nav button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.getElementById(`nav-${sectionName}`).classList.add('active');
+                if (sectionName === 'diagrama') {
+                    loadDiagram();
+                }
+            } catch (error) {
+                console.error('Error cambiando sección:', error);
+                showNotification('Error al cambiar de sección', 'error');
+            }
+        }
+
+        /* ===== GESTIÓN DE PLANTILLAS ===== */
+        /* Funciones para renderizar y usar plantillas rápidas de tareas. */
+
+        /** Renderiza botones de plantillas en el grid.
+         * - Cada botón tiene data-attribute para identificación. */
+        function renderTemplates() {
+            const templatesGrid = document.getElementById('templatesGrid');
+            templatesGrid.innerHTML = TASK_TEMPLATES.map(template => `
+                <button class="btn btn-outline template-btn" data-template-name="${template.name}">
+                    ${template.icon || '📋'} ${template.name}
+                </button>
+            `).join('');
+        }
+
+        /** Carga una plantilla en el modal de nueva tarea.
+         * @param {string} templateName - Nombre de la plantilla a usar. */
+        function useTemplate(templateName) {
+            const template = TASK_TEMPLATES.find(t => t.name === templateName);
+            if (!template) return;
+            document.getElementById('taskName').value = template.name;
+            document.getElementById('taskDescription').value = template.description || '';
+            document.getElementById('taskCategory').value = template.category;
+            document.getElementById('taskPriority').value = template.priority;
+           
+            selectedColor = template.color;
+            setupColorPalette();
+            openNewTaskModal();
+            showNotification(`Plantilla "${templateName}" cargada`, 'success');
+        }
+
+        /* ===== GESTIÓN DE CATEGORÍAS ===== */
+        /* Funciones para renderizar y gestionar categorías en selectores y modal. */
+
+        /** Renderiza opciones de categorías en selectores del modal.
+         * - Solo categorías activas. */
+        function renderCategories() {
+            const categorySelects = [document.getElementById('taskCategory'), document.getElementById('editTaskCategory')];
+            categorySelects.forEach(select => {
+                if (select) {
+                    select.innerHTML = categories.filter(cat => cat.isActive).map(cat => `
+                        <option value="${cat.name}">${cat.icon || '📌'} ${cat.name}</option>
+                    `).join('');
+                }
+            });
+            renderCategoriesList(); // Actualiza lista en modal de gestión
+        }
+
+        /** Renderiza lista de categorías en el modal de gestión, con botones de eliminar.
+         * - Solo muestra categorías personalizadas para edición. */
+        function renderCategoriesList() {
+            const list = document.getElementById('categoriesList');
+            if (!list) return;
+            list.innerHTML = categories.map(cat => `
+                <div class="flex-between mb-20" style="padding: 10px; background: var(--bg-light); border-radius: 6px;">
+                    <span>${cat.icon} ${cat.name} <small style="color: var(--text-light);">(Color: ${cat.color})</small></span>
+                    ${cat.isCustom ? `<button class="btn btn-small btn-danger" onclick="removeCategory('${cat.id}')">Eliminar</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        /** Abre el modal de gestión de categorías. */
+        function openCategoriesModal() {
+            renderCategoriesList();
+            document.getElementById('categoriesModal').classList.add('active');
+        }
+
+        /** Cierra el modal de gestión de categorías. */
+        function closeCategoriesModal() {
+            document.getElementById('categoriesModal').classList.remove('active');
+            document.getElementById('newCategoryForm').reset();
+            document.getElementById('newCategoryColor').value = '#4a90e2';
+        }
+
+        /* ===== GESTIÓN DE MODALES ===== */
+        /* Funciones para abrir/cerrar modales, con reset de formularios y focus. */
+
+        /** Abre el modal de nueva tarea y configura focus.
+         * - Limpia formulario si es necesario. */
+        function openNewTaskModal() {
+            document.getElementById('newTaskForm').reset();
+            selectedColor = '#4a90e2';
+            setupColorPalette();
+            document.getElementById('newTaskModal').classList.add('active');
+            document.getElementById('taskName').focus();
+        }
+
+        /** Cierra el modal de nueva tarea y resetea estado.
+         * - Limpia formulario y selección de color. */
+        function closeNewTaskModal() {
+            document.getElementById('newTaskModal').classList.remove('active');
+            document.getElementById('newTaskForm').reset();
+            selectedColor = '#4a90e2';
+            setupColorPalette();
+        }
+
+        /** Abre el modal de edición de tarea y precarga datos.
+         * @param {string} taskId - ID de la tarea a editar. */
+        function openEditTaskModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                showNotification('Tarea no encontrada', 'error');
+                return;
+            }
+            document.getElementById('editTaskId').value = taskId;
+            document.getElementById('editTaskName').value = task.name;
+            document.getElementById('editTaskDescription').value = task.description || '';
+            document.getElementById('editTaskCategory').value = task.category;
+            document.getElementById('editTaskPriority').value = task.priority || 'media';
+            selectedColor = task.color;
+            setupColorPalette('editTaskModal');
+            document.getElementById('editTaskModal').classList.add('active');
+            document.getElementById('editTaskName').focus();
+        }
+
+        /** Cierra el modal de edición de tarea y resetea estado. */
+        function closeEditTaskModal() {
+            document.getElementById('editTaskModal').classList.remove('active');
+            document.getElementById('editTaskForm').reset();
+            selectedColor = '#4a90e2';
+            setupColorPalette('editTaskModal');
+        }
+
+        /* ===== GESTIÓN DE TAREAS ===== */
+        /* Funciones principales para CRUD de tareas: crear, editar, pausar, finalizar, eliminar.
+           - Todas son asíncronas para integración con DB. */
+
+        /** Crea y guarda una nueva tarea desde el formulario.
+         * @param {Event} event - Evento de submit.
+         * @returns {Promise<void>} Resuelve al guardar. */
+        async function startTask(event) {
+            event.preventDefault();
+            try {
+                const name = document.getElementById('taskName').value.trim();
+                const description = document.getElementById('taskDescription').value.trim();
+                const category = document.getElementById('taskCategory').value;
+                const priority = document.getElementById('taskPriority').value;
+               
+                if (!name) {
+                    showNotification('⚠️ Por favor ingresa un nombre para la tarea', 'warning');
+                    return;
+                }
+                if (name.length > 100) {
+                    showNotification('Nombre demasiado largo (máx. 100 caracteres)', 'warning');
+                    return;
+                }
+                if (description.length > 500) {
+                    showNotification('Descripción demasiado larga (máx. 500 caracteres)', 'warning');
+                    return;
+                }
+                const task = {
+                    id: generateId(),
+                    name,
+                    description,
+                    category,
+                    priority,
+                    color: selectedColor,
+                    start: Date.now(),
+                    end: null,
+                    duration: 0,
+                    status: 'active',
+                    pausedTime: 0,
+                    pauseStart: null,
+                    date: currentDate
+                };
+                console.log('Creando nueva tarea:', task);
+               
+                // Guardar en la base de datos
+                await saveTask(task);
+               
+                // Actualizar estado local
+                tasks.push(task);
+               
+                closeNewTaskModal();
+                renderTasks();
+               
+                showNotification(`Tarea "${name}" iniciada`, 'success');
+            } catch (error) {
+                console.error('Error iniciando tarea:', error);
+                showNotification('Error al crear la tarea', 'error');
+            }
+        }
+
+        /** Edita y guarda cambios en una tarea existente.
+         * @param {Event} event - Evento de submit.
+         * @returns {Promise<void>} Resuelve al guardar. */
+        async function saveEditedTask(event) {
+            event.preventDefault();
+            try {
+                const id = document.getElementById('editTaskId').value;
+                const name = document.getElementById('editTaskName').value.trim();
+                const description = document.getElementById('editTaskDescription').value.trim();
+                const category = document.getElementById('editTaskCategory').value;
+                const priority = document.getElementById('editTaskPriority').value;
+               
+                if (!name || name.length > 100 || description.length > 500) {
+                    showNotification('Datos inválidos o demasiado largos', 'warning');
+                    return;
+                }
+
+                const task = tasks.find(t => t.id === id);
+                if (task) {
+                    task.name = name;
+                    task.description = description;
+                    task.category = category;
+                    task.priority = priority;
+                    task.color = selectedColor;
+                    await saveTask(task);
+                }
+
+                closeEditTaskModal();
+                renderTasks();
+               
+                showNotification(`Tarea "${name}" actualizada`, 'success');
+            } catch (error) {
+                console.error('Error editando tarea:', error);
+                showNotification('Error al editar la tarea', 'error');
+            }
+        }
+
+        /** Inicia un timer global para actualizar timers de tareas activas cada segundo.
+         * - Usa un solo interval para eficiencia en lugar de uno por tarea. */
+        function startGlobalTimer() {
+            if (globalTimer) clearInterval(globalTimer);
+            globalTimer = setInterval(() => {
+                tasks.forEach(task => {
+                    if (task.status === 'active') {
+                        updateTaskTimer(task.id);
+                    }
+                });
+            }, 1000);
+        }
+
+        /** Actualiza el display del timer para una tarea específica.
+         * @param {string} taskId - ID de la tarea. */
+        function updateTaskTimer(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task || task.status === 'completed') return;
+            const timerElement = document.getElementById(`timer-${taskId}`);
+            if (timerElement) {
+                let elapsed = calculateDuration(
+                    task.start,
+                    task.status === 'active' ? Date.now() : task.pauseStart,
+                    task.pausedTime
+                );
+                timerElement.textContent = formatTime(elapsed);
+            }
+        }
+
+        /** Pausa o reanuda una tarea, actualizando estado y DB.
+         * @param {string} taskId - ID de la tarea. */
+        async function pauseTask(taskId) {
+            try {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+                if (task.status === 'active') {
+                    task.status = 'paused';
+                    task.pauseStart = Date.now();
+                    showNotification(`Tarea "${task.name}" pausada`, 'info');
+                } else if (task.status === 'paused') {
+                    task.status = 'active';
+                    task.pausedTime += (Date.now() - task.pauseStart);
+                    task.pauseStart = null;
+                    showNotification(`Tarea "${task.name}" reanudada`, 'success');
+                }
+                await saveTask(task);
+                renderTasks();
+            } catch (error) {
+                console.error('Error pausando tarea:', error);
+                showNotification('Error al pausar la tarea', 'error');
+            }
+        }
+
+        /** Finaliza una tarea, calcula duración y actualiza DB/UI.
+         * @param {string} taskId - ID de la tarea. */
+        async function endTask(taskId) {
+            try {
+                const task = tasks.find(t => t.id === taskId);
+                if (!task) return;
+                task.end = Date.now();
+                task.status = 'completed';
+               
+                if (task.pauseStart) {
+                    task.pausedTime += (task.end - task.pauseStart);
+                }
+               
+                task.duration = calculateDuration(task.start, task.end, task.pausedTime);
+                await saveTask(task);
+                renderTasks();
+               
+                showNotification(`Tarea "${task.name}" completada en ${formatTime(task.duration)}`, 'success');
+            } catch (error) {
+                console.error('Error finalizando tarea:', error);
+                showNotification('Error al finalizar la tarea', 'error');
+            }
+        }
+
+        /** Elimina una tarea tras confirmación, actualizando DB y UI.
+         * @param {string} taskId - ID de la tarea. */
+        async function deleteTask(taskId) {
+            if (!confirm('¿Estás seguro de eliminar esta tarea? Esta acción no se puede deshacer.')) return;
+           
+            try {
+                const taskIndex = tasks.findIndex(t => t.id === taskId);
+                if (taskIndex === -1) return;
+                const task = tasks[taskIndex];
+                tasks.splice(taskIndex, 1);
+               
+                await deleteTaskFromDB(taskId);
+                renderTasks();
+               
+                showNotification('Tarea eliminada correctamente', 'success');
+            } catch (error) {
+                console.error('Error eliminando tarea:', error);
+                showNotification('Error al eliminar la tarea', 'error');
+            }
+        }
+
+        /* ===== RENDERIZADO DE TAREAS ===== */
+        /* Funciones para generar HTML de tarjetas y timeline, con eventos dinámicos. */
+
+        /** Renderiza listas de tareas en contenedores separados (activas/completadas) y timeline.
+         * - Ordena timeline por inicio ascendente para cronología. */
+        function renderTasks() {
+            try {
+                const activeContainer = document.getElementById('activeTasks');
+                const completedContainer = document.getElementById('completedTasks');
+                const chronologicalContainer = document.getElementById('chronologicalList');
+                activeContainer.innerHTML = '';
+                completedContainer.innerHTML = '';
+                chronologicalContainer.innerHTML = '';
+                const activeTasks = tasks.filter(t => t.status !== 'completed');
+                const completedTasks = tasks.filter(t => t.status === 'completed');
+                if (activeTasks.length === 0) {
+                    activeContainer.innerHTML = `
+                        <div class="empty-state">
+                            <p>🎯 No hay tareas activas</p>
+                            <p class="text-light">¡Inicia una nueva tarea para comenzar!</p>
+                        </div>
+                    `;
+                } else {
+                    activeTasks.forEach(task => activeContainer.appendChild(createTaskCard(task)));
+                }
+                if (completedTasks.length === 0) {
+                    completedContainer.innerHTML = `
+                        <div class="empty-state">
+                            <p>✅ No hay tareas completadas hoy</p>
+                        </div>
+                    `;
+                } else {
+                    completedTasks.forEach(task => completedContainer.appendChild(createTaskCard(task)));
+                }
+                const sortedTasks = [...tasks].sort((a, b) => a.start - b.start);
+                if (sortedTasks.length === 0) {
+                    chronologicalContainer.innerHTML = `
+                        <p class="text-center" style="color: var(--text-light);">
+                            📅 No hay tareas registradas hoy
+                        </p>
+                    `;
+                } else {
+                    sortedTasks.forEach(task => chronologicalContainer.appendChild(createTimelineItem(task)));
+                }
+            } catch (error) {
+                console.error('Error renderizando tareas:', error);
+                showNotification('Error al renderizar las tareas', 'error');
+            }
+        }
+
+        /** Crea una tarjeta HTML para una tarea, con acciones y timer.
+         * @param {Object} task - Objeto de tarea.
+         * @returns {HTMLElement} Elemento div de la tarjeta. */
+        function createTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = `task-card ${task.status === 'completed' ? 'completed' : ''}`;
+            card.style.background = `${task.color}15`;
+            card.style.borderLeftColor = task.color;
+            let elapsed = task.status === 'completed'
+                ? task.duration
+                : calculateDuration(
+                    task.start,
+                    task.status === 'active' ? Date.now() : task.pauseStart,
+                    task.pausedTime
+                );
+            const priorityIcons = {
+                'baja': '🟢',
+                'media': '🟡',
+                'alta': '🔴'
+            };
+            card.innerHTML = `
+                <div class="task-header">
+                    <div class="task-name">${task.name}</div>
+                    <div class="flex-between">
+                        <span class="task-category">${task.category}</span>
+                        <span>${priorityIcons[task.priority] || '⚪'}</span>
+                    </div>
+                    ${task.description ? `<div style="font-size: 0.9rem; color: var(--text-light); margin-top: 5px;">${task.description}</div>` : ''}
+                </div>
+                <div class="task-timer" id="timer-${task.id}">${formatTime(elapsed)}</div>
+                <div class="task-actions">
+                    ${task.status !== 'completed' ? `
+                        <button class="btn btn-small btn-warning pause-task-btn"
+                                data-task-id="${task.id}">
+                            ${task.status === 'paused' ? '▶️ Reanudar' : '⏸️ Pausar'}
+                        </button>
+                        <button class="btn btn-small btn-success end-task-btn"
+                                data-task-id="${task.id}">
+                            ✅ Finalizar
+                        </button>
+                        <button class="btn btn-small btn-primary edit-task-btn"
+                                data-task-id="${task.id}">
+                            ✏️ Editar
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-small btn-danger delete-task-btn"
+                            data-task-id="${task.id}">
+                        🗑️ Eliminar
+                    </button>
+                </div>
+                <div class="task-info">
+                    <div><strong>⏰ Inicio:</strong> ${formatTimestamp(task.start)}</div>
+                    ${task.end ? `<div><strong>🏁 Fin:</strong> ${formatTimestamp(task.end)}</div>` : ''}
+                    ${task.status === 'paused' ? '<div style="color: var(--warning); font-weight: 600;">⏸️ En Pausa</div>' : ''}
+                </div>
+            `;
+            // Agregar event listeners dinámicos
+            if (task.status !== 'completed') {
+                card.querySelector('.pause-task-btn').addEventListener('click', () => pauseTask(task.id));
+                card.querySelector('.end-task-btn').addEventListener('click', () => endTask(task.id));
+                card.querySelector('.edit-task-btn').addEventListener('click', () => openEditTaskModal(task.id));
+            }
+            card.querySelector('.delete-task-btn').addEventListener('click', () => deleteTask(task.id));
+            return card;
+        }
+
+        /** Crea un item HTML para la timeline cronológica.
+         * @param {Object} task - Objeto de tarea.
+         * @returns {HTMLElement} Elemento div del item. */
+        function createTimelineItem(task) {
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.style.borderLeftColor = task.color;
+            const duration = task.status === 'completed'
+                ? task.duration
+                : calculateDuration(task.start, Date.now(), task.pausedTime);
+            const priorityIcons = {
+                'baja': '🟢',
+                'media': '🟡',
+                'alta': '🔴'
+            };
+            item.innerHTML = `
+                <div class="flex-between" style="flex-wrap: wrap; gap: 10px;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 5px;">
+                            ${task.name}
+                        </div>
+                        <div style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 5px;">
+                            <span style="background: ${task.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">
+                                ${task.category}
+                            </span>
+                            <span style="margin-left: 8px;">${priorityIcons[task.priority] || '⚪'}</span>
+                        </div>
+                        ${task.description ? `
+                            <div style="font-size: 0.85rem; color: var(--text-light); font-style: italic;">
+                                ${task.description}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.3rem; font-weight: 700; color: ${task.color};">
+                            ${formatTime(duration)}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-light);">
+                            ${formatTimestamp(task.start)}
+                            ${task.end ? ` - ${formatTimestamp(task.end)}` : ' (activa)'}
+                        </div>
+                        ${task.status === 'paused' ?
+                            '<div style="color: var(--warning); font-size: 0.85rem; font-weight: 600;">⏸️ Pausada</div>' : ''}
+                    </div>
+                </div>
+            `;
+            return item;
+        }
+
+        /* ===== EXPORTACIÓN E IMPORTACIÓN ===== */
+        /* Funciones para exportar reportes (CSV/TXT/JSON) e importar backups.
+           - Soporta formatos múltiples para flexibilidad. */
+
+        /** Inicia exportación del día seleccionado en TXT.
+ * - Verifica si hay datos antes de proceder. */
+        async function exportDay() {
+            try {
+                const selectedDate = document.getElementById('exportDate').value;
+                if (!selectedDate) {
+                    showNotification('⚠️ Selecciona una fecha para exportar', 'warning');
+                    return;
+                }
+                const dateTasks = await loadDayData(selectedDate);
+                if (dateTasks.length === 0) {
+                    showNotification(`⚠️ No hay tareas para exportar en ${selectedDate}`, 'warning');
+                    return;
+                }
+                const content = generateTXTContent(dateTasks, selectedDate); // Nueva función helper
+                downloadFile(content, `tasktracker_${selectedDate}.txt`, 'text/plain');
+                showNotification(`📄 Tareas de ${selectedDate} exportadas a TXT`, 'success');
+            } catch (error) {
+                console.error('Error exportando datos:', error);
+                showNotification('Error al exportar', 'error');
+            }
+        }
+
+        /** Exporta tareas del día en CSV, con manejo de comas en campos.
+         * - Incluye todos los campos de tarea para análisis completo. */
+        function exportCSV() {
+            const headers = ['ID', 'Nombre', 'Descripción', 'Categoría', 'Prioridad', 'Inicio', 'Fin', 'Duración (min)', 'Estado'];
+            const rows = tasks.map(task => {
+                const durationMin = Math.round((task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime)) / 60);
+                return [
+                    task.id,
+                    `"${task.name.replace(/"/g, '""')}"`,
+                    `"${(task.description || '').replace(/"/g, '""')}"`,
+                    task.category,
+                    task.priority,
+                    new Date(task.start).toISOString(),
+                    task.end ? new Date(task.end).toISOString() : 'En progreso',
+                    durationMin,
+                    task.status
+                ].join(',');
+            });
+            const csv = [headers.join(','), ...rows].join('\n');
+            downloadFile(csv, `tasktracker_${currentDate}.csv`, 'text/csv');
+            showNotification('📊 Datos exportados en CSV', 'success');
+        }
+
+       /** Exporta tareas del día actual en TXT legible.
+        * @param {boolean} [download=true] - Si descargar automáticamente.
+        * @returns {string} Contenido TXT. */
+        function exportTXT(download = true) {
+            const content = generateTXTContent(tasks, currentDate);
+            if (download) {
+                downloadFile(content, `tasktracker_${currentDate}.txt`, 'text/plain');
+            }
+            showNotification('📄 Reporte exportado en TXT', 'success');
+            return content;
+        }
+
+        /** Genera el contenido TXT para tareas de una fecha específica.
+        * @param {Array} dateTasks - Tareas del día.
+        * @param {string} date - Fecha en formato YYYY-MM-DD.
+        * @returns {string} Contenido TXT formateado. */
+        function generateTXTContent(dateTasks, date) {
+            let content = `═══════════════════════════════════════════════════\n`;
+            content += ` TASKTRACKER DIARIO - TAREAS DEL DÍA\n`;
+            content += ` Fecha: ${date}\n`;
+            content += `═══════════════════════════════════════════════════\n\n`;
+            const completedTasks = dateTasks.filter(t => t.status === 'completed');
+            const activeTasks = dateTasks.filter(t => t.status !== 'completed');
+            content += `📊 RESUMEN\n`;
+            content += `───────────────────────────────────────────────────\n`;
+            content += `Total de tareas: ${dateTasks.length}\n`;
+            content += `Completadas: ${completedTasks.length}\n`;
+            content += `En progreso: ${activeTasks.length}\n\n`;
+            const totalSeconds = dateTasks.reduce((sum, task) => sum + (task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime)), 0);
+            const totalMinutes = Math.round(totalSeconds / 60);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            content += `⏰ Tiempo total: ${hours}h ${minutes}m\n\n`;
+            content += `📋 DETALLES DE TAREAS\n`;
+            content += `═══════════════════════════════════════════════════\n\n`;
+            const sortedTasks = [...dateTasks].sort((a, b) => a.start - b.start);
+            sortedTasks.forEach((task, index) => {
+                const duration = task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime);
+                const durationMin = Math.round(duration / 60);
+                content += `${index + 1}. ${task.name}\n`;
+                content += `   📝 Descripción: ${task.description || 'Sin descripción'}\n`;
+                content += `   🏷️ Categoría: ${task.category}\n`;
+                content += `   🎯 Prioridad: ${task.priority}\n`;
+                content += `   📊 Estado: ${task.status === 'completed' ? '✅ Completada' : task.status === 'paused' ? '⏸ Pausada' : '▶ Activa'}\n`;
+                content += `   ⏰ Inicio: ${formatTimestamp(task.start)}\n`;
+                if (task.end) {
+                    content += `   🏁 Fin: ${formatTimestamp(task.end)}\n`;
+                }
+                content += `   ⏱️ Duración: ${formatTime(duration)} (${durationMin} min)\n`;
+                content += `\n`;
+            });
+            content += `\n═══════════════════════════════════════════════════\n`;
+            content += `Generado: ${new Date().toLocaleString('es-ES')}\n`;
+            content += `═══════════════════════════════════════════════════\n`;
+            return content;
+        }
+
+        /** Crea un backup completo de todas las tareas y categorías en JSON.
+         * - Incluye versión para compatibilidad. */
+        async function createBackup() {
+            try {
+                const allTasks = await db.tasks.toArray();
+                const allCategories = await db.categories.toArray();
+                const backup = {
+                    version: '3.0',
+                    date: new Date().toISOString(),
+                    tasks: allTasks,
+                    categories: allCategories
+                };
+                const backupData = JSON.stringify(backup, null, 2);
+                downloadFile(backupData, `tasktracker_backup_${currentDate}.json`, 'application/json');
+                showNotification('💾 Backup creado correctamente', 'success');
+            } catch (error) {
+                console.error('Error creando backup:', error);
+                showNotification('Error al crear el backup', 'error');
+            }
+        }
+
+        /** Importa un backup JSON, validando versión y actualizando DB/UI.
+         * @param {Event} event - Evento de cambio de archivo. */
+        async function importData(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const backup = JSON.parse(e.target.result);
+                        if (backup.version !== '3.0') {
+                            showNotification('Formato de backup no compatible', 'error');
+                            return;
+                        }
+                        await db.tasks.bulkPut(backup.tasks);
+                        await db.categories.bulkPut(backup.categories);
+                        tasks = await loadDayData(currentDate);
+                        categories = await loadCategories();
+                        renderTasks();
+                        renderCategories();
+                        showNotification('Datos importados correctamente', 'success');
+                    } catch (error) {
+                        console.error('Error importando datos:', error);
+                        showNotification('Error al importar el backup', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            } catch (error) {
+                console.error('Error iniciando importación:', error);
+                showNotification('Error al importar', 'error');
+            }
+        }
+
+        /** Descarga un archivo blob con contenido especificado.
+         * @param {string} content - Contenido del archivo.
+         * @param {string} filename - Nombre del archivo.
+         * @param {string} mimeType - Tipo MIME. */
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        /* ===== VISUALIZACIÓN Y ESTADÍSTICAS ===== */
+        /* Funciones para cargar y renderizar gráficos y métricas basados en datos de una fecha.
+           - Incluye Gantt-like para timeline, dona para categorías, barras para eficiencia y línea para semanal. */
+
+        /** Carga y renderiza todas las visualizaciones para una fecha.
+         * @returns {Promise<void>} Resuelve al completar renderizado. */
+        async function loadDiagram() {
+            try {
+                const selectedDate = document.getElementById('diagramDate').value;
+                if (!selectedDate) return;
+                console.log('Cargando diagrama para fecha:', selectedDate);
+                const dateTasks = await loadDayData(selectedDate);
+                const diagramContent = document.getElementById('diagramContent');
+                const emptyDiagram = document.getElementById('emptyDiagram');
+                console.log('Tareas para diagrama:', dateTasks);
+                if (dateTasks.length === 0) {
+                    diagramContent.classList.add('hidden');
+                    emptyDiagram.classList.remove('hidden');
+                    return;
+                }
+                diagramContent.classList.remove('hidden');
+                emptyDiagram.classList.add('hidden');
+                renderTimelineChart(dateTasks); // Gantt-like
+                renderMetrics(dateTasks);
+                renderCategoryChart(dateTasks);
+                renderEfficiencyChart(dateTasks);
+                renderWeeklyChart(selectedDate);
+                showNotification('📊 Gráficos actualizados', 'success');
+            } catch (error) {
+                console.error('Error cargando diagrama:', error);
+                showNotification('Error al cargar visualizaciones', 'error');
+            }
+        }
+
+        /** Renderiza un gráfico Gantt-like: barras horizontales para rangos de tiempo (inicio-fin) de tareas.
+         * @param {Array} dateTasks - Array de tareas para la fecha.
+         * - Eje X: Horas del día (0-24); Eje Y: Nombres de tareas. */
+        function renderTimelineChart(dateTasks) {
+            try {
+                const ctx = document.getElementById('timelineChart').getContext('2d');
+                if (timelineChartInstance) timelineChartInstance.destroy();
+                const data = dateTasks.map(task => {
+                    const startHour = new Date(task.start).getHours() + new Date(task.start).getMinutes() / 60;
+                    const endTime = task.end || Date.now();
+                    const endHour = new Date(endTime).getHours() + new Date(endTime).getMinutes() / 60;
+                    return [startHour, endHour];
+                });
+                timelineChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: dateTasks.map(t => t.name),
+                        datasets: [{
+                            label: 'Rango de Tiempo',
+                            data,
+                            backgroundColor: dateTasks.map(t => t.color),
+                            borderColor: dateTasks.map(t => t.color),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal bars para Gantt
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const task = dateTasks[context.dataIndex];
+                                        const start = new Date(task.start);
+                                        const end = task.end ? new Date(task.end) : new Date();
+                                        const duration = Math.round(calculateDuration(task.start, end, task.pausedTime) / 60);
+                                        return [
+                                            `Inicio: ${start.toLocaleTimeString('es-ES')}`,
+                                            `Fin: ${end.toLocaleTimeString('es-ES')}`,
+                                            `Duración: ${duration} min`,
+                                            `Categoría: ${task.category}`
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                min: 0,
+                                max: 24,
+                                ticks: { callback: value => value.toFixed(0) + ':00', stepSize: 2 },
+                                title: { display: true, text: 'Hora del Día' }
+                            },
+                            y: { title: { display: true, text: 'Tareas' } }
+                        }
+                    }
+                });
+                // TODO: Agregar chartjs-plugin-zoom para zoom interactivo en rangos largos si se necesita.
+            } catch (error) {
+                console.error('Error renderizando timeline chart:', error);
+                showNotification('Error en gráfico de timeline', 'error');
+            }
+        }
+
+        /** Renderiza métricas clave en tarjetas (total, completadas, tiempo, eficiencia).
+         * @param {Array} dateTasks - Array de tareas para calcular métricas. */
+        function renderMetrics(dateTasks) {
+            try {
+                const metricsGrid = document.getElementById('metricsGrid');
+                metricsGrid.innerHTML = '';
+                const totalSeconds = dateTasks.reduce((sum, task) =>
+                    sum + (task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime)), 0);
+                const totalMinutes = Math.round(totalSeconds / 60);
+                const totalHours = (totalSeconds / 3600).toFixed(1);
+                const completedCount = dateTasks.filter(t => t.status === 'completed').length;
+                const activeCount = dateTasks.filter(t => t.status === 'active').length;
+                const metrics = [
+                    {
+                        label: 'Total de Tareas',
+                        value: dateTasks.length,
+                        unit: '',
+                        icon: '📋'
+                    },
+                    {
+                        label: 'Tareas Completadas',
+                        value: completedCount,
+                        unit: '',
+                        icon: '✅'
+                    },
+                    {
+                        label: 'Tiempo Total',
+                        value: totalHours,
+                        unit: 'horas',
+                        icon: '⏱️'
+                    },
+                    {
+                        label: 'Eficiencia',
+                        value: dateTasks.length > 0 ? Math.round((completedCount / dateTasks.length) * 100) : 0,
+                        unit: '%',
+                        icon: '📈'
+                    }
+                ];
+                metrics.forEach(metric => {
+                    const card = document.createElement('div');
+                    card.className = 'metric-card';
+                    card.innerHTML = `
+                        <div class="metric-label">${metric.icon} ${metric.label}</div>
+                        <div class="metric-value">${metric.value}${metric.unit ? ' ' + metric.unit : ''}</div>
+                    `;
+                    metricsGrid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error renderizando métricas:', error);
+                showNotification('Error en métricas', 'error');
+            }
+        }
+
+        /** Renderiza gráfico de dona para distribución de tiempo por categoría.
+         * @param {Array} dateTasks - Array de tareas. */
+        function renderCategoryChart(dateTasks) {
+            try {
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                const categoryData = {};
+                dateTasks.forEach(task => {
+                    const duration = task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime);
+                    if (!categoryData[task.category]) {
+                        categoryData[task.category] = { duration: 0, color: task.color, count: 0 };
+                    }
+                    categoryData[task.category].duration += duration;
+                    categoryData[task.category].count += 1;
+                });
+                const labels = Object.keys(categoryData);
+                const data = labels.map(cat => Math.round(categoryData[cat].duration / 60));
+                const colors = labels.map(cat => categoryData[cat].color);
+                categoryChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.map((label, i) => `${label} (${data[i]} min)`),
+                        datasets: [{
+                            data,
+                            backgroundColor: colors,
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const minutes = context.parsed;
+                                        const hours = Math.floor(minutes / 60);
+                                        const mins = minutes % 60;
+                                        const category = labels[context.dataIndex];
+                                        const count = categoryData[category].count;
+                                        return [
+                                            `${category}: ${hours}h ${mins}m`,
+                                            `Tareas: ${count}`
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error renderizando category chart:', error);
+                showNotification('Error en gráfico de categorías', 'error');
+            }
+        }
+
+        /** Renderiza gráfico de barras para eficiencia por categoría (% completadas).
+         * @param {Array} dateTasks - Array de tareas. */
+        function renderEfficiencyChart(dateTasks) {
+            try {
+                const ctx = document.getElementById('efficiencyChart').getContext('2d');
+                if (efficiencyChartInstance) efficiencyChartInstance.destroy();
+                const categoryEfficiency = {};
+                dateTasks.forEach(task => {
+                    if (!categoryEfficiency[task.category]) {
+                        categoryEfficiency[task.category] = { total: 0, completed: 0 };
+                    }
+                    categoryEfficiency[task.category].total += 1;
+                    if (task.status === 'completed') {
+                        categoryEfficiency[task.category].completed += 1;
+                    }
+                });
+                const labels = Object.keys(categoryEfficiency);
+                const data = labels.map(cat => categoryEfficiency[cat].total > 0 ? Math.round((categoryEfficiency[cat].completed / categoryEfficiency[cat].total) * 100) : 0);
+                efficiencyChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Eficiencia (%)',
+                            data,
+                            backgroundColor: '#4a90e2',
+                            borderColor: '#357abd',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error renderizando efficiency chart:', error);
+                showNotification('Error en gráfico de eficiencia', 'error');
+            }
+        }
+
+        /** Renderiza gráfico de línea para productividad semanal (horas por día).
+         * @param {string} selectedDate - Fecha base para calcular semana. */
+        async function renderWeeklyChart(selectedDate) {
+            try {
+                const ctx = document.getElementById('weeklyChart').getContext('2d');
+                if (weeklyChartInstance) weeklyChartInstance.destroy();
+                const dates = [];
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date(selectedDate);
+                    date.setDate(date.getDate() - i);
+                    dates.push(date.toISOString().split('T')[0]);
+                }
+                const weeklyData = await Promise.all(dates.map(async date => {
+                    const dayTasks = await loadDayData(date);
+                    return dayTasks.reduce((sum, task) => sum + (task.status === 'completed' ? task.duration / 3600 : calculateDuration(task.start, Date.now(), task.pausedTime) / 3600), 0);
+                }));
+                weeklyChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dates.map(d => new Date(d).toLocaleDateString('es-ES', { weekday: 'short' })),
+                        datasets: [{
+                            label: 'Horas por día',
+                            data: weeklyData,
+                            borderColor: '#4a90e2',
+                            backgroundColor: '#4a90e250',
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: 'Horas' } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error renderizando weekly chart:', error);
+                showNotification('Error en gráfico semanal', 'error');
+            }
+        }
+
+        /** Alterna visibilidad de la timeline cronológica.
+         * - Actualiza texto del botón para indicar estado. */
+        function toggleTimeline() {
+            const timeline = document.getElementById('chronologicalList');
+            const button = document.getElementById('toggle-timeline');
+           
+            if (timeline.style.display === 'none') {
+                timeline.style.display = 'block';
+                button.textContent = '↕️ Ocultar';
+            } else {
+                timeline.style.display = 'none';
+                button.textContent = '↕️ Mostrar';
+            }
+        }
+
+        /** Exporta un reporte mejorado con métricas adicionales para la fecha seleccionada. */
+        /** Exporta un reporte mejorado con métricas para la fecha seleccionada. */
+        async function exportReport() {
+            const selectedDate = document.getElementById('diagramDate').value;
+            const dateTasks = await loadDayData(selectedDate);
+            
+            if (dateTasks.length === 0) {
+                showNotification('No hay datos para exportar', 'warning');
+                return;
+            }
+            const completedCount = dateTasks.filter(t => t.status === 'completed').length;
+            const efficiency = dateTasks.length > 0 ? Math.round((completedCount / dateTasks.length) * 100) : 0;
+            let content = generateTXTContent(dateTasks, selectedDate);
+            content += `\n📈 MÉTRICAS ADICIONALES\n`;
+            content += `Eficiencia del día: ${efficiency}%\n`;
+            content += `Tareas completadas: ${completedCount}/${dateTasks.length}\n`;
+            downloadFile(content, `reporte_${selectedDate}.txt`, 'text/plain');
+            showNotification('Reporte exportado con métricas', 'success');
+        }
+
+        /* ===== INICIALIZACIÓN Y EVENTOS GLOBALES ===== */
+        /* Eventos de ventana para inicialización y limpieza al cargar/cerrar la app. */
+
+        // Inicia la app al cargar DOM
+        window.addEventListener('DOMContentLoaded', initApp);
+
+        // Limpia timers al cerrar ventana
+        window.addEventListener('beforeunload', async () => {
+            if (globalTimer) clearInterval(globalTimer);
+            // TODO: Guardado final si autoSave está activo
+        });
+    </script>
+</body>
+</html>
