@@ -6,6 +6,10 @@
     <title>TaskTracker Diario Pro - Gestión Avanzada de Tareas</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.2/dexie.min.js"></script>
+    <!-- Nueva dependencia: SheetJS para exportación a Excel client-side. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    
     <style>
         /* ===== VARIABLES CSS Y RESET ===== */
         :root {
@@ -607,8 +611,12 @@
     <button id="export-day-btn" class="btn btn-success">
         💾 Exportar Día (TXT)
     </button>
+    <!-- Nuevo botón: Exportar a Excel para reporte completo con todas las tareas del día. -->
+    <button id="export-excel-btn" class="btn btn-info">
+        📊 Exportar Día (Excel)
+    </button>
     <button id="backup-btn" class="btn btn-info">
-        📦 Backup
+        📦 Backup (JSON)
     </button>
 </div>
                 </div>
@@ -731,8 +739,8 @@
     <!-- MODAL: NUEVA TAREA -->
     <!-- Modal para crear nuevas tareas, con campos para descripción, prioridad y color. -->
     <div id="newTaskModal" class="modal-overlay">
-        <div class="modal">
-            <h2>➕ Nueva Tarea</h2>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+            <h2 id="new-task-title">➕ Nueva Tarea</h2>
             <form id="newTaskForm">
                 <div class="form-group">
                     <label for="taskName">📝 Nombre de la Tarea *</label>
@@ -772,8 +780,8 @@
     <!-- MODAL: EDITAR TAREA (Nuevo) -->
     <!-- Modal para editar tareas existentes, reutilizando estructura del modal de creación. -->
     <div id="editTaskModal" class="modal-overlay">
-        <div class="modal">
-            <h2>✏️ Editar Tarea</h2>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-task-title">
+            <h2 id="edit-task-title">✏️ Editar Tarea</h2>
             <form id="editTaskForm">
                 <input type="hidden" id="editTaskId">
                 <div class="form-group">
@@ -814,8 +822,8 @@
     <!-- MODAL: GESTIÓN DE CATEGORÍAS -->
     <!-- Modal para agregar/eliminar categorías personalizadas, con lista dinámica. -->
     <div id="categoriesModal" class="modal-overlay">
-        <div class="modal">
-            <h2>🏷️ Gestión de Categorías</h2>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="categories-title">
+            <h2 id="categories-title">🏷️ Gestión de Categorías</h2>
             <div class="form-group">
                 <label>📋 Categorías Existentes</label>
                 <div id="categoriesList" class="mb-20">
@@ -954,8 +962,8 @@
          * @param {number} end - Timestamp de fin (o Date.now() si activa).
          * @param {number} [pausedTime=0] - Tiempo acumulado en pausa.
          * @returns {number} Duración neta en segundos. */
-        function calculateDuration(start, end, pausedTime) {
-            return Math.floor((end - start - (pausedTime || 0)) / 1000);
+        function calculateDuration(start, end, pausedTime = 0) {
+            return Math.floor((end - start - pausedTime) / 1000);
         }
 
         /** Muestra una notificación toast temporal con tipo de mensaje.
@@ -1178,6 +1186,8 @@
             document.getElementById('new-task-btn').addEventListener('click', openNewTaskModal);
             document.getElementById('manage-categories-btn').addEventListener('click', openCategoriesModal);
             document.getElementById('export-day-btn').addEventListener('click', exportDay);
+            // Nuevo listener: Botón para exportar a Excel.
+            document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
             document.getElementById('backup-btn').addEventListener('click', createBackup);
             document.getElementById('toggle-timeline').addEventListener('click', toggleTimeline);
            
@@ -1788,6 +1798,52 @@
             }
         }
 
+        /** Nueva función: Exporta tareas del día seleccionado a Excel (.xlsx).
+         * - Usa SheetJS para generar workbook client-side.
+         * - Incluye columnas: ID, Nombre, Descripción, Categoría, Prioridad, Estado, Inicio, Fin, Duración (seg), Tiempo Pausado (seg), Fecha.
+         * - Calcula duraciones dinámicamente para tareas activas. */
+        async function exportToExcel() {
+            try {
+                const selectedDate = document.getElementById('exportDate').value;
+                if (!selectedDate) {
+                    showNotification('⚠️ Selecciona una fecha para exportar', 'warning');
+                    return;
+                }
+                const dateTasks = await loadDayData(selectedDate);
+                if (dateTasks.length === 0) {
+                    showNotification(`⚠️ No hay tareas para exportar en ${selectedDate}`, 'warning');
+                    return;
+                }
+                // Preparar datos: array de objetos para SheetJS
+                const excelData = dateTasks.map(task => {
+                    const duration = task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime);
+                    return {
+                        ID: task.id,
+                        Nombre: task.name,
+                        Descripción: task.description || 'Sin descripción',
+                        Categoría: task.category,
+                        Prioridad: task.priority,
+                        Estado: task.status,
+                        Inicio: formatTimestamp(task.start),
+                        Fin: task.end ? formatTimestamp(task.end) : 'En progreso',
+                        'Duración (seg)': duration,
+                        'Tiempo Pausado (seg)': task.pausedTime,
+                        Fecha: task.date
+                    };
+                });
+                // Crear worksheet y workbook
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Tareas');
+                // Exportar como blob y descargar
+                XLSX.writeFile(wb, `tasktracker_${selectedDate}.xlsx`);
+                showNotification(`📊 Tareas de ${selectedDate} exportadas a Excel`, 'success');
+            } catch (error) {
+                console.error('Error exportando a Excel:', error);
+                showNotification('Error al exportar a Excel', 'error');
+            }
+        }
+
         /** Exporta tareas del día en CSV, con manejo de comas en campos.
          * - Incluye todos los campos de tarea para análisis completo. */
         function exportCSV() {
@@ -1889,7 +1945,7 @@
             }
         }
 
-        /** Importa un backup JSON, validando versión y actualizando DB/UI.
+        /** Importa un backup, validando versión y actualizando DB/UI.
          * @param {Event} event - Evento de cambio de archivo. */
         async function importData(event) {
             try {
