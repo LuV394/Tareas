@@ -6,15 +6,13 @@
     <title>TaskTracker Diario Pro - Gestión Avanzada de Tareas</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.2/dexie.min.js"></script>
-    <!-- Nueva dependencia: SheetJS para exportación a Excel client-side. -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    
     <style>
         /* ===== VARIABLES CSS Y RESET ===== */
+        /* Define variables globales para colores, sombras y transiciones consistentes en toda la app.
+           El reset elimina márgenes y paddings por defecto para un control preciso del layout. */
         :root {
-            --primary: #4a90e2;
-            --primary-dark: #357abd;
+            --primary: #134074;
+            --primary-dark: #4a90e2;
             --success: #5cb85c;
             --danger: #d9534f;
             --warning: #f0ad4e;
@@ -22,7 +20,7 @@
             --bg-light: #f8f9fa;
             --bg-dark: #343a40;
             --text-dark: #212529;
-            --text-light: #6c757d;
+            --text-light: #2c3033;
             --shadow: 0 2px 8px rgba(0,0,0,0.1);
             --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
             --border-radius: 12px;
@@ -35,12 +33,13 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0b1d6b 0%, #134074 100%);
             min-height: 100vh;
             color: var(--text-dark);
             padding: 20px;
         }
         /* ===== ESTRUCTURA PRINCIPAL ===== */
+        /* Contenedor principal que centra y enmarca la aplicación con un diseño limpio y responsivo. */
         .app-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -50,6 +49,7 @@
             overflow: hidden;
         }
         /* ===== HEADER Y NAVEGACIÓN ===== */
+        /* Encabezado con título, fecha actual y navegación entre secciones. Usa flexbox para alineación responsiva. */
         header {
             background: var(--bg-dark);
             color: white;
@@ -81,6 +81,7 @@
             flex-wrap: wrap;
         }
         /* ===== BOTONES Y CONTROLES ===== */
+        /* Estilos base para botones reutilizables, con variantes por tipo y efectos hover para mejor UX. */
         .btn {
             padding: 10px 20px;
             border: none;
@@ -128,6 +129,7 @@
             font-size: 0.85rem;
         }
         /* ===== SECCIONES Y CONTENIDO ===== */
+        /* Secciones ocultas por defecto, mostradas con animación fade-in para transiciones suaves. */
         section {
             display: none;
             padding: 30px;
@@ -141,6 +143,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         /* ===== NOTIFICACIONES ===== */
+        /* Sistema de notificaciones toast para feedback inmediato al usuario, con tipos por color y auto-desaparición. */
         .notification {
             position: fixed;
             top: 20px;
@@ -185,6 +188,7 @@
             to { transform: translateX(0); opacity: 1; }
         }
         /* ===== PLANTILLAS DE TAREAS ===== */
+        /* Sección para plantillas rápidas de tareas, con grid responsivo para selección rápida. */
         .templates-section {
             background: var(--bg-light);
             padding: 20px;
@@ -198,6 +202,7 @@
             margin-top: 15px;
         }
         /* ===== CONTENEDORES DE TAREAS ===== */
+        /* Contenedores para listas de tareas, con headers flexibles y grids responsivos. */
         .tasks-container {
             margin-bottom: 40px;
         }
@@ -224,6 +229,7 @@
             margin-bottom: 30px;
         }
         /* ===== TARJETAS DE TAREAS ===== */
+        /* Tarjetas individuales para tareas, con estilos para estados (activa/completada) y acciones. */
         .task-card {
             border-radius: 10px;
             padding: 20px;
@@ -280,6 +286,7 @@
             border-top: 1px solid #e0e0e0;
         }
         /* ===== LISTA CRONOLÓGICA ===== */
+        /* Timeline para mostrar tareas en orden cronológico, con línea vertical y nodos circulares. */
         .chronological-list {
             margin-top: 40px;
         }
@@ -320,6 +327,7 @@
             border: 3px solid white;
         }
         /* ===== MÉTRICAS Y ESTADÍSTICAS ===== */
+        /* Grid para tarjetas de métricas, con hover effects para interactividad. */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -355,6 +363,7 @@
             margin-top: 30px;
         }
         /* ===== DIAGRAMAS Y GRÁFICOS ===== */
+        /* Contenedores para gráficos Chart.js, con fondos y sombras para mejor legibilidad. */
         .diagram-controls {
             display: flex;
             gap: 15px;
@@ -372,6 +381,7 @@
             box-shadow: var(--shadow);
         }
         /* ===== MODALES ===== */
+        /* Overlay para modales, con scroll interno si el contenido es largo, y animaciones para UX suave. */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -466,6 +476,7 @@
             border-top: 1px solid #e0e0e0;
         }
         /* ===== ESTADOS VACÍOS ===== */
+        /* Mensajes para cuando no hay datos, con iconos SVG para visualización amigable. */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -482,6 +493,7 @@
             color: var(--text-light);
         }
         /* ===== RESPONSIVE ===== */
+        /* Media queries para adaptabilidad en dispositivos móviles y tablets. */
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -530,6 +542,7 @@
             }
         }
         /* ===== UTILIDADES ===== */
+        /* Clases helper para estilos comunes, como flexbox, márgenes y visibilidad. */
         .hidden {
             display: none !important;
         }
@@ -611,12 +624,14 @@
     <button id="export-day-btn" class="btn btn-success">
         💾 Exportar Día (TXT)
     </button>
-    <!-- Nuevo botón: Exportar a Excel para reporte completo con todas las tareas del día. -->
-    <button id="export-excel-btn" class="btn btn-info">
-        📊 Exportar Día (Excel)
-    </button>
     <button id="backup-btn" class="btn btn-info">
-        📦 Backup (JSON)
+        📦 Backup
+    </button>
+    <button id="restore-backup-btn" class="btn btn-warning">
+        📤 Restaurar Backup
+    </button>
+    <button id="finalize-day-btn" class="btn btn-danger">
+        🔒 Finalizar Día
     </button>
 </div>
                 </div>
@@ -739,8 +754,8 @@
     <!-- MODAL: NUEVA TAREA -->
     <!-- Modal para crear nuevas tareas, con campos para descripción, prioridad y color. -->
     <div id="newTaskModal" class="modal-overlay">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
-            <h2 id="new-task-title">➕ Nueva Tarea</h2>
+        <div class="modal">
+            <h2>➕ Nueva Tarea</h2>
             <form id="newTaskForm">
                 <div class="form-group">
                     <label for="taskName">📝 Nombre de la Tarea *</label>
@@ -780,8 +795,8 @@
     <!-- MODAL: EDITAR TAREA (Nuevo) -->
     <!-- Modal para editar tareas existentes, reutilizando estructura del modal de creación. -->
     <div id="editTaskModal" class="modal-overlay">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-task-title">
-            <h2 id="edit-task-title">✏️ Editar Tarea</h2>
+        <div class="modal">
+            <h2>✏️ Editar Tarea</h2>
             <form id="editTaskForm">
                 <input type="hidden" id="editTaskId">
                 <div class="form-group">
@@ -822,8 +837,8 @@
     <!-- MODAL: GESTIÓN DE CATEGORÍAS -->
     <!-- Modal para agregar/eliminar categorías personalizadas, con lista dinámica. -->
     <div id="categoriesModal" class="modal-overlay">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="categories-title">
-            <h2 id="categories-title">🏷️ Gestión de Categorías</h2>
+        <div class="modal">
+            <h2>🏷️ Gestión de Categorías</h2>
             <div class="form-group">
                 <label>📋 Categorías Existentes</label>
                 <div id="categoriesList" class="mb-20">
@@ -858,7 +873,7 @@
         const db = new Dexie('TaskTrackerProDB');
         db.version(3).stores({
             tasks: '++id, date, status, category, start, end, priority, name, color, duration, pausedTime, pauseStart',
-            categories: '++id, name, color',
+            categories: '++id, name, color, isCustom, isActive',
             settings: 'key, value'
         });
 
@@ -918,7 +933,6 @@
         let categoryChartInstance = null;
         let efficiencyChartInstance = null;
         let weeklyChartInstance = null;
-        let previousTasks = []; // Para renderizado incremental
 
         /* ===== FUNCIONES DE UTILIDAD ===== */
         /* Conjunto de funciones helper para formateo de fechas, tiempos, IDs y notificaciones.
@@ -962,8 +976,8 @@
          * @param {number} end - Timestamp de fin (o Date.now() si activa).
          * @param {number} [pausedTime=0] - Tiempo acumulado en pausa.
          * @returns {number} Duración neta en segundos. */
-        function calculateDuration(start, end, pausedTime = 0) {
-            return Math.floor((end - start - pausedTime) / 1000);
+        function calculateDuration(start, end, pausedTime) {
+            return Math.floor((end - start - (pausedTime || 0)) / 1000);
         }
 
         /** Muestra una notificación toast temporal con tipo de mensaje.
@@ -982,27 +996,6 @@
             document.body.appendChild(notification);
             notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
             setTimeout(() => notification.remove(), 4000);
-        }
-
-        /** Sanitiza entrada de usuario para evitar XSS.
-         * @param {string} input - Texto a sanitizar.
-         * @returns {string} Texto seguro. */
-        function sanitizeInput(input) {
-            const div = document.createElement('div');
-            div.textContent = input;
-            return div.innerHTML;
-        }
-
-        /** Función debounce para eventos.
-         * @param {Function} fn - Función a debouncar.
-         * @param {number} delay - Retraso en ms.
-         * @returns {Function} Función debouncada. */
-        function debounce(fn, delay) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn(...args), delay);
-            };
         }
 
         /* ===== GESTIÓN DE BASE DE DATOS ===== */
@@ -1144,6 +1137,7 @@
         async function initApp() {
             console.log('Inicializando TaskTracker Diario Pro...');
             try {
+                // Inicializar categorías por defecto
                 await initializeDefaultCategories();
                
                 // Cargar datos iniciales
@@ -1170,7 +1164,7 @@
         }
 
         /** Configura todos los event listeners para botones, formularios y elementos dinámicos.
-         - Evita onclick inline para mejor mantenibilidad y separación de preocupaciones. */
+         * - Evita onclick inline para mejor mantenibilidad y separación de preocupaciones. */
         function setupEventListeners() {
             // Selectores DOM comunes para evitar repetición
             const newTaskModal = document.getElementById('newTaskModal');
@@ -1186,10 +1180,10 @@
             document.getElementById('new-task-btn').addEventListener('click', openNewTaskModal);
             document.getElementById('manage-categories-btn').addEventListener('click', openCategoriesModal);
             document.getElementById('export-day-btn').addEventListener('click', exportDay);
-            // Nuevo listener: Botón para exportar a Excel.
-            document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
             document.getElementById('backup-btn').addEventListener('click', createBackup);
             document.getElementById('toggle-timeline').addEventListener('click', toggleTimeline);
+            document.getElementById('finalize-day-btn').addEventListener('click', finalizeDay);
+            document.getElementById('restore-backup-btn').addEventListener('click', () => document.getElementById('importFile').click());
            
             // Formularios
             document.getElementById('newTaskForm').addEventListener('submit', startTask);
@@ -1202,11 +1196,12 @@
             document.getElementById('cancel-category-btn').addEventListener('click', closeCategoriesModal);
            
             // Diagramas
-            document.getElementById('diagramDate').addEventListener('change', debounce(loadDiagram, 300));
+            document.getElementById('diagramDate').addEventListener('change', loadDiagram);
             document.getElementById('refresh-charts').addEventListener('click', loadDiagram);
             document.getElementById('export-report').addEventListener('click', exportReport);
            
             // Configuración
+            document.getElementById('exportAllData').addEventListener('click', createBackup);
             document.getElementById('importData').addEventListener('click', () => document.getElementById('importFile').click());
             document.getElementById('importFile').addEventListener('change', importData);
             document.getElementById('syncNow').addEventListener('click', () => showNotification('Sincronización no implementada aún', 'info'));
@@ -1244,7 +1239,7 @@
         }
 
         /** Actualiza el display de fecha en el header.
-         - Usa locale español para formato legible. */
+         * - Usa locale español para formato legible. */
         function updateDateDisplay() {
             const options = {
                 weekday: 'long',
@@ -1286,7 +1281,7 @@
         /* Funciones para renderizar y usar plantillas rápidas de tareas. */
 
         /** Renderiza botones de plantillas en el grid.
-         - Cada botón tiene data-attribute para identificación. */
+         * - Cada botón tiene data-attribute para identificación. */
         function renderTemplates() {
             const templatesGrid = document.getElementById('templatesGrid');
             templatesGrid.innerHTML = TASK_TEMPLATES.map(template => `
@@ -1316,7 +1311,7 @@
         /* Funciones para renderizar y gestionar categorías en selectores y modal. */
 
         /** Renderiza opciones de categorías en selectores del modal.
-         - Solo categorías activas. */
+         * - Solo categorías activas. */
         function renderCategories() {
             const categorySelects = [document.getElementById('taskCategory'), document.getElementById('editTaskCategory')];
             categorySelects.forEach(select => {
@@ -1330,7 +1325,7 @@
         }
 
         /** Renderiza lista de categorías en el modal de gestión, con botones de eliminar.
-         - Solo muestra categorías personalizadas para edición. */
+         * - Solo muestra categorías personalizadas para edición. */
         function renderCategoriesList() {
             const list = document.getElementById('categoriesList');
             if (!list) return;
@@ -1359,7 +1354,7 @@
         /* Funciones para abrir/cerrar modales, con reset de formularios y focus. */
 
         /** Abre el modal de nueva tarea y configura focus.
-         - Limpia formulario si es necesario. */
+         * - Limpia formulario si es necesario. */
         function openNewTaskModal() {
             document.getElementById('newTaskForm').reset();
             selectedColor = '#4a90e2';
@@ -1369,7 +1364,7 @@
         }
 
         /** Cierra el modal de nueva tarea y resetea estado.
-         - Limpia formulario y selección de color. */
+         * - Limpia formulario y selección de color. */
         function closeNewTaskModal() {
             document.getElementById('newTaskModal').classList.remove('active');
             document.getElementById('newTaskForm').reset();
@@ -1414,8 +1409,8 @@
         async function startTask(event) {
             event.preventDefault();
             try {
-                const name = sanitizeInput(document.getElementById('taskName').value.trim());
-                const description = sanitizeInput(document.getElementById('taskDescription').value.trim());
+                const name = document.getElementById('taskName').value.trim();
+                const description = document.getElementById('taskDescription').value.trim();
                 const category = document.getElementById('taskCategory').value;
                 const priority = document.getElementById('taskPriority').value;
                
@@ -1471,8 +1466,8 @@
             event.preventDefault();
             try {
                 const id = document.getElementById('editTaskId').value;
-                const name = sanitizeInput(document.getElementById('editTaskName').value.trim());
-                const description = sanitizeInput(document.getElementById('editTaskDescription').value.trim());
+                const name = document.getElementById('editTaskName').value.trim();
+                const description = document.getElementById('editTaskDescription').value.trim();
                 const category = document.getElementById('editTaskCategory').value;
                 const priority = document.getElementById('editTaskPriority').value;
                
@@ -1504,15 +1499,14 @@
         /** Inicia un timer global para actualizar timers de tareas activas cada segundo.
          * - Usa un solo interval para eficiencia en lugar de uno por tarea. */
         function startGlobalTimer() {
-            function updateTimers() {
+            if (globalTimer) clearInterval(globalTimer);
+            globalTimer = setInterval(() => {
                 tasks.forEach(task => {
                     if (task.status === 'active') {
                         updateTaskTimer(task.id);
                     }
                 });
-                requestAnimationFrame(updateTimers);
-            }
-            requestAnimationFrame(updateTimers);
+            }, 1000);
         }
 
         /** Actualiza el display del timer para una tarea específica.
@@ -1600,6 +1594,25 @@
             }
         }
 
+        /** Finaliza todas las tareas activas o pausadas del día. */
+        async function finalizeDay() {
+            try {
+                const pendingTasks = tasks.filter(t => t.status !== 'completed');
+                if (pendingTasks.length === 0) {
+                    showNotification('No hay tareas pendientes para finalizar', 'info');
+                    return;
+                }
+                if (!confirm('¿Finalizar todas las tareas pendientes del día?')) return;
+                for (const task of pendingTasks) {
+                    await endTask(task.id);
+                }
+                showNotification('Día finalizado correctamente', 'success');
+            } catch (error) {
+                console.error('Error finalizando el día:', error);
+                showNotification('Error al finalizar el día', 'error');
+            }
+        }
+
         /* ===== RENDERIZADO DE TAREAS ===== */
         /* Funciones para generar HTML de tarjetas y timeline, con eventos dinámicos. */
 
@@ -1610,15 +1623,11 @@
                 const activeContainer = document.getElementById('activeTasks');
                 const completedContainer = document.getElementById('completedTasks');
                 const chronologicalContainer = document.getElementById('chronologicalList');
-                if (!activeContainer || !completedContainer || !chronologicalContainer) return;
+                activeContainer.innerHTML = '';
+                completedContainer.innerHTML = '';
+                chronologicalContainer.innerHTML = '';
                 const activeTasks = tasks.filter(t => t.status !== 'completed');
                 const completedTasks = tasks.filter(t => t.status === 'completed');
-
-                // Renderizado incremental: solo actualizar si hay cambios
-                if (JSON.stringify(tasks) === JSON.stringify(previousTasks)) return;
-                previousTasks = [...tasks];
-
-                activeContainer.innerHTML = '';
                 if (activeTasks.length === 0) {
                     activeContainer.innerHTML = `
                         <div class="empty-state">
@@ -1629,7 +1638,6 @@
                 } else {
                     activeTasks.forEach(task => activeContainer.appendChild(createTaskCard(task)));
                 }
-                completedContainer.innerHTML = '';
                 if (completedTasks.length === 0) {
                     completedContainer.innerHTML = `
                         <div class="empty-state">
@@ -1639,7 +1647,6 @@
                 } else {
                     completedTasks.forEach(task => completedContainer.appendChild(createTaskCard(task)));
                 }
-                chronologicalContainer.innerHTML = '';
                 const sortedTasks = [...tasks].sort((a, b) => a.start - b.start);
                 if (sortedTasks.length === 0) {
                     chronologicalContainer.innerHTML = `
@@ -1754,18 +1761,18 @@
                                 ${task.description}
                             </div>
                         ` : ''}
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.3rem; font-weight: 700; color: ${task.color};">
+                            ${formatTime(duration)}
                         </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 1.3rem; font-weight: 700; color: ${task.color};">
-                                ${formatTime(duration)}
-                            </div>
-                            <div style="font-size: 0.85rem; color: var(--text-light);">
-                                ${formatTimestamp(task.start)}
-                                ${task.end ? ` - ${formatTimestamp(task.end)}` : ' (activa)'}
-                            </div>
-                            ${task.status === 'paused' ?
-                                '<div style="color: var(--warning); font-size: 0.85rem; font-weight: 600;">⏸ Pausada</div>' : ''}
+                        <div style="font-size: 0.85rem; color: var(--text-light);">
+                            ${formatTimestamp(task.start)}
+                            ${task.end ? ` - ${formatTimestamp(task.end)}` : ' (activa)'}
                         </div>
+                        ${task.status === 'paused' ?
+                            '<div style="color: var(--warning); font-size: 0.85rem; font-weight: 600;">⏸️ Pausada</div>' : ''}
+                    </div>
                 </div>
             `;
             return item;
@@ -1798,52 +1805,6 @@
             }
         }
 
-        /** Nueva función: Exporta tareas del día seleccionado a Excel (.xlsx).
-         * - Usa SheetJS para generar workbook client-side.
-         * - Incluye columnas: ID, Nombre, Descripción, Categoría, Prioridad, Estado, Inicio, Fin, Duración (seg), Tiempo Pausado (seg), Fecha.
-         * - Calcula duraciones dinámicamente para tareas activas. */
-        async function exportToExcel() {
-            try {
-                const selectedDate = document.getElementById('exportDate').value;
-                if (!selectedDate) {
-                    showNotification('⚠️ Selecciona una fecha para exportar', 'warning');
-                    return;
-                }
-                const dateTasks = await loadDayData(selectedDate);
-                if (dateTasks.length === 0) {
-                    showNotification(`⚠️ No hay tareas para exportar en ${selectedDate}`, 'warning');
-                    return;
-                }
-                // Preparar datos: array de objetos para SheetJS
-                const excelData = dateTasks.map(task => {
-                    const duration = task.status === 'completed' ? task.duration : calculateDuration(task.start, Date.now(), task.pausedTime);
-                    return {
-                        ID: task.id,
-                        Nombre: task.name,
-                        Descripción: task.description || 'Sin descripción',
-                        Categoría: task.category,
-                        Prioridad: task.priority,
-                        Estado: task.status,
-                        Inicio: formatTimestamp(task.start),
-                        Fin: task.end ? formatTimestamp(task.end) : 'En progreso',
-                        'Duración (seg)': duration,
-                        'Tiempo Pausado (seg)': task.pausedTime,
-                        Fecha: task.date
-                    };
-                });
-                // Crear worksheet y workbook
-                const ws = XLSX.utils.json_to_sheet(excelData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Tareas');
-                // Exportar como blob y descargar
-                XLSX.writeFile(wb, `tasktracker_${selectedDate}.xlsx`);
-                showNotification(`📊 Tareas de ${selectedDate} exportadas a Excel`, 'success');
-            } catch (error) {
-                console.error('Error exportando a Excel:', error);
-                showNotification('Error al exportar a Excel', 'error');
-            }
-        }
-
         /** Exporta tareas del día en CSV, con manejo de comas en campos.
          * - Incluye todos los campos de tarea para análisis completo. */
         function exportCSV() {
@@ -1867,7 +1828,7 @@
             showNotification('📊 Datos exportados en CSV', 'success');
         }
 
-       /** Exportar tareas del día actual en TXT legible.
+       /** Exporta tareas del día actual en TXT legible.
         * @param {boolean} [download=true] - Si descargar automáticamente.
         * @returns {string} Contenido TXT. */
         function exportTXT(download = true) {
@@ -1945,7 +1906,7 @@
             }
         }
 
-        /** Importa un backup, validando versión y actualizando DB/UI.
+        /** Importa un backup JSON, validando versión y actualizando DB/UI.
          * @param {Event} event - Evento de cambio de archivo. */
         async function importData(event) {
             try {
@@ -2245,7 +2206,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
-                            y: { beginAtZero: true, max: 100 }
+                            y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } }
                         }
                     }
                 });
@@ -2313,6 +2274,7 @@
         }
 
         /** Exporta un reporte mejorado con métricas adicionales para la fecha seleccionada. */
+        /** Exporta un reporte mejorado con métricas para la fecha seleccionada. */
         async function exportReport() {
             const selectedDate = document.getElementById('diagramDate').value;
             const dateTasks = await loadDayData(selectedDate);
